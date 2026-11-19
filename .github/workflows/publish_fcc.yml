@@ -1,0 +1,41 @@
+name: Refresh and publish FCC database
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 12 * * 1'
+  push:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - 'scripts/**'
+      - '.github/workflows/publish_fcc.yml'
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: fcc-pages
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build FCC P25 frequency data and site pins from official ULS snapshots
+        run: |
+          mkdir -p site
+          cp index.html site/index.html
+          python scripts/build_hosted.py --output site --download
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - name: Deploy GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4
