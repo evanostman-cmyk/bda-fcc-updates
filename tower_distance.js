@@ -38,8 +38,11 @@
         </select>
       </div>
     </div>
+    <label class="fcc-geo-nearby"><input type="checkbox" id="fccGeoNearby" checked />
+      Include towers in other counties within the distance radius (recommended near county lines)
+    </label>
     <p id="fccGeoStatus" class="fcc-geo-status" role="status" aria-live="polite">Enter a complete address while online, or enter GPS coordinates to calculate distances entirely offline.</p>
-    <p class="fcc-geo-caveat">US addresses are looked up with the US Census Geocoder (internet required; address is sent to Census). GPS entry works without internet. Census address points are approximate; FCC coordinates represent licensed locations. Distances are straight-line miles, not driving distance, signal range, or confirmed active P25 towers. Search is within the currently loaded state; a successful address lookup selects its state automatically.</p>`;
+    <p class="fcc-geo-caveat">US addresses are looked up with the US Census Geocoder (internet required; address is sent to Census). GPS entry works without internet. Census address points are approximate; FCC coordinates represent licensed locations. Distances are straight-line miles, not driving distance, signal range, or confirmed active P25 towers. Distance searches use the currently selected state. Address lookup automatically selects the matched state and county; with the nearby-counties option checked, tower cards also search other counties in that state. FCC sites across state borders require loading that neighboring state.</p>`;
   const css = document.createElement('style');
   css.textContent = `
     .fcc-geo-panel{border:1px solid #afd6dc;border-radius:13px;padding:15px 17px;background:#f2fbfc;display:grid;gap:11px}
@@ -50,6 +53,8 @@
     .fcc-geo-fields .field{min-width:140px}.fcc-geo-address-field{flex:1 1 260px}
     .fcc-geo-address-field input{width:100%}.fcc-geo-radius-field{flex:0 1 180px}
     .fcc-geo-fields button{min-height:42px;white-space:nowrap}
+    .fcc-geo-nearby{display:flex;align-items:center;gap:9px;font-size:.82rem;color:#264d61;font-weight:650;cursor:pointer}
+    .fcc-geo-nearby input{accent-color:#1681a0;width:17px;height:17px;flex-shrink:0}
     .fcc-geo-status{font-size:.84rem;font-weight:700;color:#18546d;margin:0;line-height:1.55}
     .fcc-geo-status.fcc-geo-error{color:#a33b2d}
     .fcc-geo-caveat{font-size:.73rem;color:#5c7681;margin:0;line-height:1.5}
@@ -65,7 +70,7 @@
   target.insertAdjacentElement('afterend', section);
 
   const $=(id)=>document.getElementById(id);
-  let reference=null; // {lat, lon, label, state} - intentionally not persisted
+  let reference=null; // {lat, lon, label, state, county} - intentionally not persisted
   let isLocating=false;
   let lookupCount=0;
   let latestGroups=[];
@@ -94,6 +99,19 @@
   function radius(){return $('fccGeoRadius').value==='all'?Infinity:Number($('fccGeoRadius').value)}
   function radiusLabel(){return Number.isFinite(radius())?`within ${radius()} miles`:'at any distance'}
   function setStatus(message,error=false){status.textContent=message;status.classList.toggle('fcc-geo-error',error)}
+
+  // Keep the actual address county visible in the FCC dropdown, while the
+  // nearby-towers option searches other counties within the same selected state.
+  // Frequency-table filters still follow the visible county selector.
+  const originalBrowseRecords=fccSiteBrowseRecords;
+  fccSiteBrowseRecords=function(){
+    if(!reference || !$('fccGeoNearby').checked || fccFilter.state==='All' || fccFilter.county==='All'){
+      return originalBrowseRecords();
+    }
+    const county=fccFilter.county;
+    try{fccFilter.county='All';return originalBrowseRecords()}
+    finally{fccFilter.county=county}
+  };
 
   const originalSiteGroups=fccSiteGroups;
   fccSiteGroups=function(){
@@ -165,28 +183,66 @@
     return records.filter(r=>{const mi=distanceTo(r);return mi!==null&&mi<=radius()});
   };
 
-  function refreshDistanceView(){
+  function normalizedCounty(value){
+    return String(value||'').trim().replace(/\\b(COUNTY|PARISH|MUNICIPIO|CENSUS AREA|BOROUGH|CITY AND BOROUGH)\\b/gi,'')
+      .replace(/\\bSAINT\\b/gi,'ST').replace(/[^A-Za-z0-9]/g,'').toUpperCase();
+  }
+  function selectAddressCounty(county){
+    const possibilities=[...$('fccCounty').options].map(x=>x.value).filter(x=>x!=='All');
+    const wanted=normalizedCounty(county);
+    if(!wanted)return '';
+    const match=possibilities.find(x=>normalizedCounty(x)===wanted);
+    return match||'';
+  }
+  function refreshDistanceView(note=''){
     fccRenderSiteCards();fccRenderTowerSelection();
     if(reference){
       const shown=latestGroups.length;
       const mismatch=reference.state&&reference.state!==fccFilter.state;
-      setStatus(`${reference.label} (${reference.lat.toFixed(6)}, ${reference.lon.toFixed(6)}) · ${shown.toLocaleString()} towers ${radiusLabel()} in the selected state/filters. Sorted nearest first.${mismatch?' Address is in '+reference.state+' but the loaded FCC state is '+fccFilter.state+'; choose or download '+reference.state+' to find nearby towers.':''}`,false);
+      const scope=$('fccGeoNearby').checked?'all counties in the selected state':'the selected FCC county';
+      const countyLabel=reference.county?` · Address county: ${reference.county}`:'';
+      const msg=`${reference.label} (${reference.lat.toFixed(6)}, ${reference.lon.toFixed(6)})${countyLabel} · ${shown.toLocaleString()} towers ${radiusLabel()} from ${scope}. Sorted nearest first.${mismatch?' The address is in '+reference.state+' but the FCC state is '+fccFilter.state+'; select or cache '+reference.state+'.':''}`;
+      setStatus(msg+(note?' '+note:''),false);
     }
   }
   async function useReference(ref){
     reference=ref;
-    // An address lookup provides a state abbreviation. Switch to that state's data
-    // so users do not accidentally measure towers from a previously selected state.
-    if(ref.state && ref.state!==fccFilter.state){
-      if([...$('fccState').options].some(x=>x.value===ref.state)){
-        fccFilter.state=ref.state;fccFilter.county='All';fccFilter.licensee='All';fccFilter.site='All';
-        await fccNationLoadState(ref.state);
+    const targetState=/^[A-Z]{2}$/.test(ref.state||'')?ref.state:'';
+    let note='';
+    // A new address is a NEW geographic search. Don't retain old county,
+    // licensee, site, or text filters that hide towers near this address.
+    fccFilter.county='All';
+    fccFilter.licensee='All';
+    fccFilter.site='All';
+    fccFilter.text='';
+    $('fccText').value='';
+    if(targetState){
+      const stateAvailable=[...$('fccState').options].some(x=>x.value===targetState)
+        ||Boolean(fccHostedManifest?.states?.[targetState])
+        ||Boolean(fccNationMeta?.stateCounts?.[targetState]);
+      if(stateAvailable){
+        const changed=targetState!==fccFilter.state;
+        fccFilter.state=targetState;
+        if(changed)await fccNationLoadState(targetState);
+      }else{
+        note=`FCC state ${targetState} is not yet listed in your loaded database; connect to update or import that state's FCC records.`;
+      }
+    }else{
+      note='For offline GPS searches, select the matching FCC state; the county is now set to All.';
+    }
+    // Counties are populated only after loading the corresponding state's data.
+    fccRefreshFilters();
+    if(targetState && fccFilter.state===targetState && ref.county){
+      const matchedCounty=selectAddressCounty(ref.county);
+      if(matchedCounty){
+        fccFilter.county=matchedCounty;
         fccRefreshFilters();
+      }else{
+        note=`The Census identified ${ref.county}, but that county is not in the loaded FCC state records. Showing all counties.`;
       }
     }
-    // Refresh the existing FCC table and site cards; site-specific data stays intact.
     fccRender();
-    refreshDistanceView();
+    refreshDistanceView(note);
   }
   // Census explicitly supports JSONP for browser-side calls; its endpoint does not
   // currently permit browser CORS fetches. No third-party proxy or API key needed.
@@ -202,8 +258,8 @@
       const timer=setTimeout(()=>finish(Error('Census address lookup timed out')),18000);
       window[callback]=(data)=>finish(null,data);
       script.onerror=()=>finish(Error('Census address lookup could not be loaded'));
-      const url=new URL('https://geocoding.geo.census.gov/geocoder/locations/onelineaddress');
-      url.search=new URLSearchParams({address,benchmark:'Public_AR_Current',format:'jsonp',callback}).toString();
+      const url=new URL('https://geocoding.geo.census.gov/geocoder/geographies/onelineaddress');
+      url.search=new URLSearchParams({address,benchmark:'Public_AR_Current',vintage:'Current_Current',format:'jsonp',callback}).toString();
       script.src=url.href;script.async=true;
       document.head.appendChild(script);
     });
@@ -226,13 +282,27 @@
       if(!validCoords(lat,lon))throw Error('Census did not return valid coordinates.');
       const label=String(match.matchedAddress||value);
       const st=String(match.addressComponents?.state||'').trim().toUpperCase();
-      await useReference({lat,lon,label,state:/^[A-Z]{2}$/.test(st)?st:''});
+      const geo=match.geographies||{};
+      const countyRecord=geo.Counties?.[0]||geo.counties?.[0]||Object.entries(geo)
+        .find(([key,items])=>/counties/i.test(key)&&Array.isArray(items)&&items.length)?.[1]?.[0];
+      const county=String(countyRecord?.BASENAME||countyRecord?.NAME||'').trim();
+      await useReference({lat,lon,label,state:/^[A-Z]{2}$/.test(st)?st:'',county});
     }catch(e){
       setStatus(`Address lookup unavailable: ${e.message}. Check your connection or enter GPS coordinates directly; saved FCC tower data still works offline.`,true);
     }finally{isLocating=false;$('fccGeoFind').disabled=false;}
   }
   $('fccGeoFind').addEventListener('click',findAddress);
   $('fccGeoInput').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();findAddress()}});
+  $('fccGeoNearby').addEventListener('change',()=>{
+    if(reference){fccRender();refreshDistanceView()}
+  });
+  $('fccCounty').addEventListener('change',()=>{
+    // A manual county change means the operator is intentionally narrowing scope.
+    if(reference&&$('fccGeoNearby').checked){
+      $('fccGeoNearby').checked=false;
+      fccRender();refreshDistanceView();
+    }
+  });
   $('fccGeoRadius').addEventListener('change',()=>{
     if(reference){fccRender();refreshDistanceView()}
     else setStatus('Enter an address or GPS coordinates, then click Find towers.');
