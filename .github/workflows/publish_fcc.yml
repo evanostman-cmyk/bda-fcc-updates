@@ -7,6 +7,7 @@ on:
     branches: [main]
     paths:
       - 'index.html'
+      - 'tower_distance.js'
       - 'scripts/**'
       - '.github/workflows/publish_fcc.yml'
 permissions:
@@ -31,6 +32,7 @@ jobs:
         run: |
           mkdir -p site
           cp index.html site/index.html
+          cp tower_distance.js site/tower_distance.js
           python scripts/build_hosted.py --output site --download
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
