@@ -11,6 +11,8 @@ on:
       - 'elevation_profile.js'
       - 'link_budget.js'
       - 'site_plan.js'
+      - 'uplink_gain.js'
+      - 'kmz_import.js'
       - 'workspace_pages.js'
       - 'scripts/**'
       - '.github/workflows/publish_fcc.yml'
@@ -40,6 +42,8 @@ jobs:
           cp elevation_profile.js site/elevation_profile.js
           cp link_budget.js site/link_budget.js
           cp site_plan.js site/site_plan.js
+          cp uplink_gain.js site/uplink_gain.js
+          cp kmz_import.js site/kmz_import.js
           cp workspace_pages.js site/workspace_pages.js
           python scripts/build_hosted.py --output site --download
       - uses: actions/configure-pages@v5
