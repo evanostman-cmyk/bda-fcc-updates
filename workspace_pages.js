@@ -1,5 +1,5 @@
 /* Batwing RF Suite v1.11 — persistent workspace pages.
-   The three main tools are full inline pages, not dismissible modal dialogs.
+   The main tools are full inline pages, not dismissible modal dialogs.
    Small task-specific dialogs (antenna editor, elevation profile, mascot) remain modal. */
 (() => {
  'use strict';
@@ -11,6 +11,7 @@
   {key:'planner', label:'Channel Planner', glyph:'▤', node:main, source:null},
   {key:'fcc', label:'P25 Site Finder', glyph:'⌕', node:$('fccDialog'), source:'fccOpenTop'},
   {key:'budget', label:'Link Budget', glyph:'⚡', node:$('linkBudgetDialog'), source:'linkBudgetTop'},
+  {key:'uplink', label:'Uplink Gain', glyph:'⇧', node:$('uplinkGainDialog'), source:'uplinkGainTop'},
   {key:'siteplan', label:'Site Plan', glyph:'🗺', node:$('bdaSitePlanDialog'), source:'bdaSitePlanTop'}
  ];
  if (!bar || !main || definitions.some(x => !x.node)) {
@@ -38,13 +39,17 @@
  #bwWorkspacePages #fccDialog .fcc-layout{padding:18px 20px}
  #bwWorkspacePages #linkBudgetDialog .lb-scroll{flex:1 1 auto!important;min-height:0!important;max-height:none!important;overflow:visible!important}
  #bwWorkspacePages #linkBudgetDialog .lb-head{position:relative}
+ #bwWorkspacePages #uplinkGainDialog{height:auto!important;max-height:none!important;overflow:visible!important}
+ #bwWorkspacePages #uplinkGainDialog .ug-head{position:relative}
+ #bwWorkspacePages #uplinkGainDialog .ug-footer{position:sticky;bottom:0;z-index:5}
  #bwWorkspacePages #linkBudgetDialog .lb-footer{position:sticky;bottom:0;z-index:5;box-shadow:0 -4px 11px #102d401c}
  #bwWorkspacePages #bdaSitePlanDialog{height:max(700px,calc(100dvh - 160px))!important;min-height:700px!important;max-height:none!important;overflow:hidden!important}
  #bwWorkspacePages #bdaSitePlanDialog .bsp-main{min-height:0}
  #bwWorkspacePages #bdaSitePlanDialog .bsp-footer{position:relative}
- .top-actions #fccOpenTop,.top-actions #linkBudgetTop,.top-actions #bdaSitePlanTop{display:none!important}
+ .top-actions #fccOpenTop,.top-actions #linkBudgetTop,.top-actions #uplinkGainTop,.top-actions #bdaSitePlanTop{display:none!important}
  #bwWorkspacePages #fccDialog :is(#fccClose),
  #bwWorkspacePages #linkBudgetDialog :is(#lbClose),
+ #bwWorkspacePages #uplinkGainDialog :is(#ugClose),
  #bwWorkspacePages #bdaSitePlanDialog :is(#bspClose){width:auto;white-space:nowrap}
  @media(max-width:640px){
   #bwWorkspaceNav .bw-tabs{padding:9px 10px;gap:6px}
@@ -104,13 +109,13 @@
   }
  }
  // Turn the old X buttons into explicit return navigation; nothing closes on outside clicks.
- for(const id of ['fccClose','lbClose','bspClose']){
+ for(const id of ['fccClose','lbClose','ugClose','bspClose']){
   const btn=$(id);if(!btn)continue;
   btn.textContent='← Channel Planner';btn.title='Return to Channel Planner';btn.setAttribute('aria-label','Return to Channel Planner');
  }
  // Preserve the last page within this browser session; a direct page link can also specify it.
  const start=location.hash.replace('#','').toLowerCase();
- if(['fcc','budget','siteplan'].includes(start)){
+ if(['fcc','budget','uplink','siteplan'].includes(start)){
   const target=definitions.find(x=>x.key===start);
   if(target?.source&&$(target.source))$(target.source).click();else activate(start,false);
  } else activate('planner',false);
@@ -118,5 +123,5 @@
   const key=location.hash.slice(1).toLowerCase();
   if(panels[key]&&key!==active){const def=definitions.find(x=>x.key===key);if(def?.source&&$(def.source))$(def.source).click();else activate(key,false);}
  });
- window.BatwingWorkspace=Object.freeze({version:'v1.11',navigate:(key)=>{const d=definitions.find(x=>x.key===key);if(d?.source&&$(d.source))$(d.source).click();else activate(key)},active:()=>active});
+ window.BatwingWorkspace=Object.freeze({version:'v1.12',navigate:(key)=>{const d=definitions.find(x=>x.key===key);if(d?.source&&$(d.source))$(d.source).click();else activate(key)},active:()=>active});
 })();
