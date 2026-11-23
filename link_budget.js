@@ -1,4 +1,4 @@
-/* BDA Channel Planner v1.6 — RF Link Budget / Power Chain
+/* BDA Channel Planner v1.7 — RF Link Budget / Power Chain
  * Local, offline-first: calculate cascade power and prospective EIRP at every stage.
  * Conducted power is not actual EIRP until an antenna (gain in dBi) is connected.
  */
@@ -16,6 +16,17 @@
   const formatDbw=n=>`${rounded(n-30)} dBW`;
   const fmtW=n=>{if(!Number.isFinite(n))return '—';if(n===0)return '0 W';if(n<0.000001)return `${(n*1e9).toPrecision(3)} nW`;if(n<0.001)return `${(n*1e6).toPrecision(4)} µW`;if(n<1)return `${(n*1000).toPrecision(4)} mW`;if(n<100000)return `${n.toPrecision(5)} W`;return `${n.toExponential(3)} W`};
   const dBmToW=dbm=>Math.pow(10,(dbm-30)/10);
+  // Display watts explicitly (rather than switching to mW/µW). Use adaptive
+  // precision for small and large powers, and avoid rounding nonzero W to zero.
+  const formatWattDbm=dbm=>{
+    const watts=dBmToW(dbm);
+    if(!Number.isFinite(watts))return '—';
+    if(watts===0)return '0 W';
+    if(watts>=0.0001 && watts<1000000){
+      return `${Number(watts.toPrecision(7)).toLocaleString('en-US',{maximumFractionDigits:9})} W`;
+    }
+    return `${watts.toExponential(4)} W`;
+  };
   const wattsToDbm=w=>10*Math.log10(w)+30;
   const dbmFromDisplay=(value,unit)=>unit==='dBW'?value+30:unit==='W'?wattsToDbm(value):value;
   const displayFromDbm=(dbm,unit)=>unit==='dBW'?dbm-30:unit==='W'?dBmToW(dbm):dbm;
@@ -97,6 +108,7 @@
     #linkBudgetDialog .lb-checkpoint{background:#fffaf0;border:1px solid #e7ce91;border-radius:11px;padding:13px 15px;display:grid;grid-template-columns:1.4fr repeat(2,minmax(0,1fr));gap:8px;align-items:center;margin:10px 0 13px}
     #linkBudgetDialog .lb-checkpoint strong{color:#78581d}
     #linkBudgetDialog .lb-checkpoint .num{font-size:1.11rem;font-weight:850;color:#63491a}
+    #linkBudgetDialog .lb-checkpoint .lb-watts{font-size:.88rem;font-weight:800;color:#72531c;margin-top:3px}
     #linkBudgetDialog .lb-checkpoint small{display:block;color:#947b47;font-weight:700;text-transform:uppercase;font-size:.68rem}
     #linkBudgetDialog .lb-results{margin-top:12px}
     #linkBudgetDialog .lb-chart{background:#fff;border:1px solid #cfdfe6;border-radius:12px;padding:12px;overflow-x:auto}
@@ -104,7 +116,7 @@
     #linkBudgetDialog .lb-legend{display:flex;flex-wrap:wrap;gap:13px;font-size:.75rem;color:#567383;margin-top:8px}
     #linkBudgetDialog .lb-legend span:before{content:'';display:inline-block;width:15px;height:3px;vertical-align:middle;margin-right:5px;background:#1a8294}
     #linkBudgetDialog .lb-legend span.gold:before{background:#d9a02d}
-    #linkBudgetDialog .lb-results-table{width:100%;border-collapse:collapse;min-width:880px;font-size:.8rem}
+    #linkBudgetDialog .lb-results-table{width:100%;border-collapse:collapse;min-width:1140px;font-size:.8rem}
     #linkBudgetDialog .lb-results-table th{position:sticky;top:0;background:#e9f3f6;text-align:left;font-size:.72rem;padding:9px 9px;color:#375767}
     #linkBudgetDialog .lb-results-table td{border-top:1px solid #e4ecef;padding:9px;color:#244b5b}
     #linkBudgetDialog .lb-results-table tbody tr:hover{background:#f4fafb}
@@ -134,7 +146,7 @@
 
   const dialog=document.createElement('dialog');dialog.id='linkBudgetDialog';dialog.setAttribute('aria-labelledby','lbTitle');
   dialog.innerHTML=`
-    <div class="lb-head"><div><h2 id="lbTitle">⚡ RF Link Budget <span style="font-size:.60em;color:#6b8793">v1.6</span></h2><p>Build a cascaded TX power chain with unlimited editable components (up to 250). Every stage shows conducted power and the EIRP <em>if your reference antenna were connected there</em>.</p></div><div class="lb-head-actions"><button type="button" class="btn sm" id="lbToFCC">⌕ P25 Site Finder</button><button type="button" class="btn sm" id="lbClose" aria-label="Close Link Budget">✕</button></div></div>
+    <div class="lb-head"><div><h2 id="lbTitle">⚡ RF Link Budget <span style="font-size:.60em;color:#6b8793">v1.7</span></h2><p>Build a cascaded TX power chain with unlimited editable components (up to 250). Every stage shows conducted power and the EIRP <em>if your reference antenna were connected there</em>.</p></div><div class="lb-head-actions"><button type="button" class="btn sm" id="lbToFCC">⌕ P25 Site Finder</button><button type="button" class="btn sm" id="lbClose" aria-label="Close Link Budget">✕</button></div></div>
     <div class="lb-scroll">
       <div class="lb-inputs">
         <section class="lb-card"><h3>1 · Transmitter / source power</h3><div class="lb-two"><div><label for="lbTxPower">TX output power</label><input id="lbTxPower" type="number" step="any" inputmode="decimal"/></div><div><label for="lbTxUnit">Input unit</label><select id="lbTxUnit"><option value="dBm">dBm</option><option value="dBW">dBW</option><option value="W">Watts (W)</option></select></div></div><p class="lb-help">Enter the known <strong>conducted power</strong> at the chain input. The initial 30 dBm (1 W) is a <strong>placeholder, not measured site data</strong>. Use per-channel power when budgeting one channel.</p><div class="lb-mini" id="lbTxConvert"></div></section>
@@ -148,8 +160,8 @@
       <div class="lb-section-heading"><h3>Power along the chain</h3><span class="lb-muted">Blue = conducted power · Gold = EIRP if reference antenna connected here</span></div>
       <div class="lb-chart" id="lbChart" aria-label="Conducted power and prospective EIRP chart"></div>
       <div class="lb-section-heading"><h3>4 · Inspect EIRP at any point</h3><span class="lb-muted">Choose a checkpoint to pin its power and potential EIRP above</span></div>
-      <div class="lb-table-scroll"><table class="lb-results-table"><thead><tr><th>Checkpoint</th><th>Stage</th><th>Gain / loss</th><th>Conducted power</th><th>Conducted power</th><th>EIRP if antenna here</th><th>EIRP if antenna here</th></tr></thead><tbody id="lbResults"></tbody></table></div>
-      <div class="lb-disclaimer"><strong>RF engineering distinction:</strong> Conducted power is measured inside the cable/equipment. The EIRP values in each intermediate row are <em>hypothetical</em>—the calculated EIRP <em>if the specified antenna were connected at that point</em>. The final green antenna row is the estimated EIRP for the complete chain. Antenna pattern, mismatch, per-channel vs aggregate power, hardware ratings, intermodulation, and field measurements are not modeled. All component inputs are <strong>dB</strong>; power results are <strong>dBm / dBW</strong>.</div>
+      <div class="lb-table-scroll"><table class="lb-results-table"><thead><tr><th>Checkpoint</th><th>Stage</th><th>Gain / loss</th><th>Conducted dBm</th><th>Conducted dBW</th><th>Conducted W</th><th>EIRP dBm</th><th>EIRP dBW</th><th>EIRP W</th></tr></thead><tbody id="lbResults"></tbody></table></div>
+      <div class="lb-disclaimer"><strong>RF engineering distinction:</strong> Conducted power is measured inside the cable/equipment. The EIRP values in each intermediate row are <em>hypothetical</em>—the calculated EIRP <em>if the specified antenna were connected at that point</em>. The final green antenna row is the estimated EIRP for the complete chain. Antenna pattern, mismatch, per-channel vs aggregate power, hardware ratings, intermodulation, and field measurements are not modeled. All component inputs are <strong>dB</strong>; power results are <strong>dBm / dBW / watts (W)</strong>.</div>
       <div id="lbWarning" class="lb-alert" hidden></div>
     </div>
     <div class="lb-footer"><div class="lb-action-group"><button type="button" class="btn sm" id="lbExportCSV">⬇ CSV</button><button type="button" class="btn sm" id="lbExportJSON">⬇ Save budget JSON</button><button type="button" class="btn sm" id="lbImportJSON">⬆ Load budget JSON</button><input type="file" hidden id="lbFile" accept=".json,application/json"/></div><div class="lb-action-group"><span class="lb-muted" id="lbStored">Stored locally</span><button type="button" class="btn sm" id="lbExample">Load example</button><button type="button" class="btn sm" id="lbReset">Clear</button></div></div>
@@ -219,7 +231,7 @@
   });
   function onPointChange(e){const b=e.target.closest('[data-checkpoint]');if(!b)return;st.checkpoint=b.dataset.checkpoint;renderCalc();save();}
   id('lbResults').addEventListener('click',onPointChange);
-  function displayRow(r,label){return `<tr class="${st.checkpoint===r.id?'lb-selected':''} ${r.id==='final'?'lb-final':''}"><td><button type="button" data-checkpoint="${esc(r.id)}" aria-pressed="${st.checkpoint===r.id}">${st.checkpoint===r.id?'● Selected':'◎ Inspect'}</button></td><td>${esc(label)}<small>${r.type==='final'?'Reference antenna connected':r.type==='source'?'TX output':r.type==='gain'?'+ Gain stage':'− Loss stage'}</small></td><td>${r.type==='gain'?'+':r.type==='loss'?'−':'—'}${r.type==='gain'||r.type==='loss'?`${rounded(r.db)} dB`:''}</td><td class="lb-power">${formatDbm(r.conductedDbm)}</td><td class="lb-power">${formatDbw(r.conductedDbm)}</td><td class="lb-power">${formatDbm(r.ifAntennaDbm)}</td><td class="lb-power">${formatDbw(r.ifAntennaDbm)}</td></tr>`}
+  function displayRow(r,label){return `<tr class="${st.checkpoint===r.id?'lb-selected':''} ${r.id==='final'?'lb-final':''}"><td><button type="button" data-checkpoint="${esc(r.id)}" aria-pressed="${st.checkpoint===r.id}">${st.checkpoint===r.id?'● Selected':'◎ Inspect'}</button></td><td>${esc(label)}<small>${r.type==='final'?'Reference antenna connected':r.type==='source'?'TX output':r.type==='gain'?'+ Gain stage':'− Loss stage'}</small></td><td>${r.type==='gain'?'+':r.type==='loss'?'−':'—'}${r.type==='gain'||r.type==='loss'?`${rounded(r.db)} dB`:''}</td><td class="lb-power">${formatDbm(r.conductedDbm)}</td><td class="lb-power">${formatDbw(r.conductedDbm)}</td><td class="lb-power">${formatWattDbm(r.conductedDbm)}</td><td class="lb-power">${formatDbm(r.ifAntennaDbm)}</td><td class="lb-power">${formatDbw(r.ifAntennaDbm)}</td><td class="lb-power">${formatWattDbm(r.ifAntennaDbm)}</td></tr>`}
   function buildChart(rows){
     const w=980,h=235,L=70,R=30,T=23,B=48;
     const all=[...rows.flatMap(r=>[r.conductedDbm,r.ifAntennaDbm])];const min=Math.floor((Math.min(...all)-5)/10)*10,max=Math.ceil((Math.max(...all)+5)/10)*10;
@@ -228,7 +240,7 @@
     const y=v=>T+(max-v)/range*(h-T-B);
     const points=field=>rows.map((r,i)=>`${x(i).toFixed(2)},${y(r[field]).toFixed(2)}`).join(' ');
     const grid=Array.from({length:5},(_,i)=>{const val=min+(range*i/4),yy=y(val);return `<line x1="${L}" x2="${w-R}" y1="${yy}" y2="${yy}" stroke="#e3edf1"/><text x="${L-9}" y="${yy+4}" font-size="11" fill="#577384" text-anchor="end">${rounded(val,0)}</text>`}).join('');
-    const markers=rows.map((r,i)=>`<circle cx="${x(i)}" cy="${y(r.conductedDbm)}" r="4.1" fill="#1c8395"><title>${esc(r.name)}: ${formatDbm(r.conductedDbm)}</title></circle><circle cx="${x(i)}" cy="${y(r.ifAntennaDbm)}" r="3.8" fill="#d49b27"><title>${esc(r.name)}: prospective ${formatDbm(r.ifAntennaDbm)}</title></circle>`).join('');
+    const markers=rows.map((r,i)=>`<circle cx="${x(i)}" cy="${y(r.conductedDbm)}" r="4.1" fill="#1c8395"><title>${esc(r.name)}: ${formatDbm(r.conductedDbm)} / ${formatWattDbm(r.conductedDbm)}</title></circle><circle cx="${x(i)}" cy="${y(r.ifAntennaDbm)}" r="3.8" fill="#d49b27"><title>${esc(r.name)}: prospective ${formatDbm(r.ifAntennaDbm)} / ${formatWattDbm(r.ifAntennaDbm)}</title></circle>`).join('');
     const ticks=rows.length>14?[0,Math.round((n-1)/4),Math.round((n-1)/2),Math.round(3*(n-1)/4),n-1]:rows.map((_,i)=>i);
     const labels=[...new Set(ticks)].map(i=>`<text x="${x(i)}" y="${h-B+21}" fill="#6b8390" font-size="11" text-anchor="middle">${i===0?'TX':i===n-1?'ANT':i}</text>`).join('');
     const html=`<svg xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Power chain from ${rounded(min,0)} to ${rounded(max,0)} dBm" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet"><rect width="${w}" height="${h}" fill="white"/><text x="${L}" y="14" fill="#4c6c7a" font-size="12" font-weight="700">Power (dBm)</text>${grid}<polyline points="${points('conductedDbm')}" fill="none" stroke="#147d90" stroke-width="3" stroke-linejoin="round"/><polyline points="${points('ifAntennaDbm')}" fill="none" stroke="#d4a02f" stroke-width="2.8" stroke-dasharray="7 4" stroke-linejoin="round"/>${markers}${labels}<text x="${w-R}" y="${h-8}" text-anchor="end" fill="#718996" font-size="11">Stage / checkpoint →</text></svg><div class="lb-legend"><span>Conducted power (dBm)</span><span class="gold">EIRP if reference antenna attached here (dBm)</span></div>`;
@@ -245,7 +257,7 @@
     id('lbOutputDbm').textContent=formatDbm(res.finalConductedDbm);id('lbOutputDbw').textContent=formatDbw(res.finalConductedDbm);
     id('lbEirpDbm').textContent=formatDbm(res.finalEirpDbm);id('lbEirpDbw').textContent=formatDbw(res.finalEirpDbm);
     id('lbWatts').textContent=fmtW(dBmToW(res.finalConductedDbm));id('lbEirpWatts').textContent='EIRP equivalent: '+fmtW(dBmToW(res.finalEirpDbm));
-    id('lbCheckpoint').innerHTML=`<div><strong>${curr.id==='final'?'At final reference antenna':'Checkpoint: '+esc(curr.name)}</strong><div class="lb-mini">${curr.id==='final'?'Estimated radiated EIRP at antenna':'Prospective EIRP with reference antenna connected here'}</div></div><div><small>Conducted here</small><div class="num">${formatDbm(curr.conductedDbm)}</div><div class="lb-mini">${formatDbw(curr.conductedDbm)}</div></div><div><small>${curr.id==='final'?'Final EIRP':'EIRP if antenna here'}</small><div class="num">${formatDbm(curr.ifAntennaDbm)}</div><div class="lb-mini">${formatDbw(curr.ifAntennaDbm)}</div></div>`;
+    id('lbCheckpoint').innerHTML=`<div><strong>${curr.id==='final'?'At final reference antenna':'Checkpoint: '+esc(curr.name)}</strong><div class="lb-mini">${curr.id==='final'?'Estimated radiated EIRP at antenna':'Prospective EIRP with reference antenna connected here'}</div></div><div><small>Conducted here</small><div class="num">${formatDbm(curr.conductedDbm)}</div><div class="lb-mini">${formatDbw(curr.conductedDbm)}</div><div class="lb-watts">${formatWattDbm(curr.conductedDbm)}</div></div><div><small>${curr.id==='final'?'Final EIRP':'EIRP if antenna here'}</small><div class="num">${formatDbm(curr.ifAntennaDbm)}</div><div class="lb-mini">${formatDbw(curr.ifAntennaDbm)}</div><div class="lb-watts">${formatWattDbm(curr.ifAntennaDbm)}</div></div>`;
     id('lbResults').innerHTML=rows.map(r=>displayRow(r,r.name)).join('');
     id('lbChart').innerHTML=buildChart(rows);
     const warns=[];
@@ -256,9 +268,17 @@
   function renderAll(){renderTop();renderComponents();renderCalc()}
   function download(name,content,mime){const blob=new Blob([content],{type:mime});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),3000)}
   function csvCell(x){let v=String(x??'');if(/^[\s]*[=+@\-]/.test(v))v="'"+v;return '"'+v.replace(/"/g,'""')+'"'}
-  function exportCSV(){const res=calculate();const rows=[...res.rows,{id:'final',name:'At reference antenna',type:'final',db:0,conductedDbm:res.finalConductedDbm,ifAntennaDbm:res.finalEirpDbm}];const lines=[['Stage','Type','Component','Gain_or_Loss_dB','Conducted_dBm','Conducted_dBW','EIRP_if_antenna_here_dBm','EIRP_if_antenna_here_dBW']];rows.forEach((r,i)=>lines.push([i,r.type,r.name,r.delta??'',rounded(r.conductedDbm,4),rounded(r.conductedDbm-30,4),rounded(r.ifAntennaDbm,4),rounded(r.ifAntennaDbm-30,4)]));lines.push(['','','Reference antenna gain (dBi)',rounded(res.antennaDbi,4),'','','','']);download('BDA_Link_Budget_v1.6.csv',lines.map(line=>line.map(csvCell).join(',')).join('\r\n'),'text/csv;charset=utf-8')}
+  function exportCSV(){
+    const res=calculate();
+    const rows=[...res.rows,{id:'final',name:'At reference antenna',type:'final',db:0,conductedDbm:res.finalConductedDbm,ifAntennaDbm:res.finalEirpDbm}];
+    const toCsvWatts=dbm=>Number(dBmToW(dbm).toPrecision(12));
+    const lines=[['Stage','Type','Component','Gain_or_Loss_dB','Conducted_dBm','Conducted_dBW','Conducted_W','EIRP_if_antenna_here_dBm','EIRP_if_antenna_here_dBW','EIRP_if_antenna_here_W']];
+    rows.forEach((r,i)=>lines.push([i,r.type,r.name,r.delta??'',rounded(r.conductedDbm,4),rounded(r.conductedDbm-30,4),toCsvWatts(r.conductedDbm),rounded(r.ifAntennaDbm,4),rounded(r.ifAntennaDbm-30,4),toCsvWatts(r.ifAntennaDbm)]));
+    lines.push(['','','Reference antenna gain (dBi)',rounded(res.antennaDbi,4),'','','','','','']);
+    download('BDA_Link_Budget_v1.7.csv',lines.map(line=>line.map(csvCell).join(',')).join('\r\n'),'text/csv;charset=utf-8');
+  }
   id('lbExportCSV').addEventListener('click',exportCSV);
-  id('lbExportJSON').addEventListener('click',()=>download('BDA_Link_Budget_v1.6.json',JSON.stringify({format:'BDA-Link-Budget',version:'1.6',exportedAt:new Date().toISOString(),...st},null,2),'application/json'));
+  id('lbExportJSON').addEventListener('click',()=>download('BDA_Link_Budget_v1.7.json',JSON.stringify({format:'BDA-Link-Budget',version:'1.7',exportedAt:new Date().toISOString(),...st},null,2),'application/json'));
   id('lbImportJSON').addEventListener('click',()=>id('lbFile').click());
   id('lbFile').addEventListener('change',async e=>{
     const file=e.target.files?.[0];if(!file)return;
@@ -269,5 +289,5 @@
   id('lbReset').addEventListener('click',()=>{if(st.steps.length&&!window.confirm('Clear all link-budget components and restore default power settings?'))return;st=defaultState();renderAll();save()});
   id('lbExample').addEventListener('click',()=>{if(st.steps.length&&!window.confirm('Replace current budget with a sample RF chain? Export JSON first if you want to keep it.'))return;st=defaultState();st.sourceDbm=30;st.antennaGain=6;st.steps=[newStep('loss','Feedline',3),newStep('gain','Amplifier',20),newStep('loss','Coupler / distribution',10)];renderAll();save()});
   // Allow read-only engineering verification without opening the dialog.
-  window.BDA_LinkBudget=Object.freeze({version:'v1.6',open,calculate,dbmFromDisplay,displayFromDbm,effectiveAntenna,read:()=>JSON.parse(JSON.stringify(st))});
+  window.BDA_LinkBudget=Object.freeze({version:'v1.7',open,calculate,dbmFromDisplay,displayFromDbm,effectiveAntenna,read:()=>JSON.parse(JSON.stringify(st))});
 })();
