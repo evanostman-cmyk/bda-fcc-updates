@@ -9,6 +9,7 @@ on:
       - 'index.html'
       - 'tower_distance.js'
       - 'elevation_profile.js'
+      - 'link_budget.js'
       - 'scripts/**'
       - '.github/workflows/publish_fcc.yml'
 permissions:
@@ -35,6 +36,7 @@ jobs:
           cp index.html site/index.html
           cp tower_distance.js site/tower_distance.js
           cp elevation_profile.js site/elevation_profile.js
+          cp link_budget.js site/link_budget.js
           python scripts/build_hosted.py --output site --download
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
