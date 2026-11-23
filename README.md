@@ -50,3 +50,11 @@ For technical details see [README_FIRST.md](README_FIRST.md).
 - Save budgets in browser storage; export/import a standalone **JSON** budget or export a stage-by-stage **CSV**. The Link Budget does not require internet access, an FCC database, or GitHub.
 - **Engineering distinction:** intermediate EIRP values are hypothetical until an antenna is actually connected at that point; this is a **TX conducted power and EIRP chain** tool, not a received-power/FSPL, Fresnel-zone or path-propagation calculator. Enter the correct single-channel or aggregate source power. The default 30 dBm and 0 dBi values are **placeholders**, not design assumptions.
 - Offline release: `BDA_Channel_Planner_Evan_Andrew_v1.6_OFFLINE.html` (single self-contained HTML file).
+
+## v1.7 — Watts at every checkpoint (November 23, 2026)
+- The selected Link Budget checkpoint displays **conducted dBm / dBW / W** and **prospective EIRP dBm / dBW / W**.
+- Every stage in the power-chain results table includes **Conducted W** and **EIRP W** columns, and the CSV export includes those numeric watt columns.
+- The transmitter and antenna calculations are unchanged; watts are derived using `W = 10^((dBm - 30)/10)`.
+- Watts are shown explicitly in W at the checkpoint, including very small powers in scientific notation when needed.
+- **Saved v1.6 budgets remain available**: v1.7 intentionally uses the same browser storage key, and v1.6 JSON budget files can still be imported.
+- Offline release: `BDA_Channel_Planner_Evan_Andrew_v1.7_OFFLINE.html`.
