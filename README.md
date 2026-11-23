@@ -1,4 +1,4 @@
-# BDA Channel Plan Calculator — automatic FCC updates
+# Batwing RF Suite — RF Engineering Toolkit
 
 A single-page channel planning and FCC P25-compatible licensing search tool, with selectable transmitter sites and KML export.
 
@@ -76,3 +76,10 @@ For technical details see [README_FIRST.md](README_FIRST.md).
 - Supports selective deletion, one-level **Undo delete**, loading a two-wing sample network, copying TX source power from the existing linear Link Budget, diagram zoom, **SVG schematic export**, **per-element CSV**, standalone **JSON save/load**, and browser-local saving.
 - **Engineering limitations:** a preliminary **single-input TX distribution-tree** model, not a floor plan or real map. It excludes reflected power, PIM, RF exposure, antenna patterns, coverage, Fresnel/LOS, split mismatch, power-combining, and hardware ratings. Default non-splitter device losses/gains are **0 dB placeholders**: use actual manufacturer specs and field measurements. Cable attenuation varies with frequency; the operator must enter the correct value. The displayed EIRP at intermediate non-antenna nodes is a hypothetical test-antenna value.
 - **Offline single HTML:** `BDA_Channel_Planner_Evan_Andrew_v1.9_OFFLINE.html`. The new site planner works without internet and without FCC data.
+
+## v1.10 — Batwing RF Suite branding (November 23, 2026)
+- Renamed the app from **BDA Channel Planner** to **Batwing RF Suite**, an independent Motorola-inspired RF engineering toolkit with the RF Wizard mascot.
+- The original FCC, P25 Site Finder, tower distances, azimuth, terrain profiles, Link Budget, and branching Site Plan tools are unchanged.
+- The online URL and GitHub repository name intentionally stay the same to preserve bookmarks and automatic FCC updates.
+- Existing browser storage keys and the format of previous project, budget, and Site Plan JSON files remain unchanged for compatibility.
+- Offline single-file release: `Batwing_RF_Suite_Evan_Andrew_v1.10_OFFLINE.html`.
