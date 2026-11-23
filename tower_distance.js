@@ -71,6 +71,7 @@
 
   const $=(id)=>document.getElementById(id);
   let reference=null; // {lat, lon, label, state, county} - intentionally not persisted
+  window.BDA_TowerDistance = Object.freeze({getReference:()=>reference?{...reference}:null});
   let isLocating=false;
   let lookupCount=0;
   let latestGroups=[];
