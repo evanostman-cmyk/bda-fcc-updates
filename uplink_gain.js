@@ -96,7 +96,7 @@
     }else notes.push('Enter current BDA gain, measured tower RSSI, target RSSI and isolation to calculate a test gain.');
     if(valid(off,-180,30)&&valid(on,-180,30)&&valid(tolerance,0,20)){
       noiseRise=on-off;noiseOk=noiseRise<=tolerance+1e-9;
-      if(!noiseOk)notes.push('STOP: BDA ON increases tower noise beyond the allowed limit. Do not increase gain; troubleshoot and remeasure with the tower technician.');
+      if(!noiseOk){notes.push('STOP: BDA ON increases tower noise beyond the allowed limit. Do not increase gain; troubleshoot and remeasure with the tower technician.');suggested=null;predicted=null;delta=null;headroom=null;notes.push('Provisional gain is withheld until tower receiver noise is acceptable.');}
     }else notes.push('Tower noise OFF/ON readings are missing or invalid. Gain result remains planning-only, not commissioned.');
     if(suggested!==null&&valid(input,-180,40)&&valid(donorLoss,0,150)&&valid(donorGain,-30,60)){
       const conducted=input+suggested, eirp=conducted-donorLoss+donorGain;
@@ -116,8 +116,8 @@
     put('ugOutDelta',r.delta);put('ugOutHeadroom',r.headroom);put('ugOutNoise',r.noiseRise);
     $('ugOutEirp').textContent=r.power?r.power.conducted.toFixed(1)+' / '+r.power.eirp.toFixed(1)+' dBm':'—';
     $('ugWarnings').textContent=r.notes.join('\n');
-    $('ugWarnings').classList.toggle('ug-alert',r.noiseOk===false||r.notes.some(s=>s.includes('STOP')||s.includes('exceeds')||s.includes('needs more')));
-    try{localStorage.setItem(STORAGE,JSON.stringify(Object.fromEntries(ids.map(id=>[id,$(id).value]))))}catch(e){$('ugState').textContent='Browser storage unavailable; export your results.'}
+    $('ugWarnings').classList.toggle('ug-alert',r.noiseOk!==true||r.notes.some(s=>s.includes('STOP')||s.includes('exceeds')||s.includes('needs more')));
+    try{localStorage.setItem(STORAGE,JSON.stringify(Object.fromEntries(ids.map(id=>[id,$(id).value]))));$('ugState').textContent='Inputs saved in this browser.'}catch(e){$('ugState').textContent='Browser storage unavailable; export your results.'}
     return r;
   }
   try{const saved=JSON.parse(localStorage.getItem(STORAGE)||'null');if(saved&&typeof saved==='object')for(const id of ids)if(typeof saved[id]==='string')$(id).value=saved[id]}catch(e){}
