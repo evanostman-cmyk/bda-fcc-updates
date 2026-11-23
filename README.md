@@ -58,3 +58,11 @@ For technical details see [README_FIRST.md](README_FIRST.md).
 - Watts are shown explicitly in W at the checkpoint, including very small powers in scientific notation when needed.
 - **Saved v1.6 budgets remain available**: v1.7 intentionally uses the same browser storage key, and v1.6 JSON budget files can still be imported.
 - Offline release: `BDA_Channel_Planner_Evan_Andrew_v1.7_OFFLINE.html`.
+
+## v1.8 — Inspector row deletion and footer layout (November 23, 2026)
+- The Link Budget modal uses a vertically constrained, flex-column layout: its footer actions stay inside the viewport while the editable budget body scrolls.
+- In **Section 4: Inspect EIRP at any point**, editable gain/loss checkpoints now have a **× Delete** action beside **Inspect**. Removing the checkpoint deletes the corresponding component from the source power chain and recomputes downstream conducted power and EIRP, including dBm, dBW, W, chart, and CSV.
+- The **TX output/source** and **final reference antenna** rows are fixed endpoints and cannot be deleted.
+- **Undo last deletion** restores the most recently deleted component to its previous position.
+- Both original component-table row deletion and the new inspector deletion update the same saved browser budget. Storage key remains unchanged, so previously saved v1.6/v1.7 budgets continue to load.
+- Offline file: `BDA_Channel_Planner_Evan_Andrew_v1.8_OFFLINE.html`
