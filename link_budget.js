@@ -1,4 +1,4 @@
-/* BDA Channel Planner v1.7 — RF Link Budget / Power Chain
+/* BDA Channel Planner v1.8 — RF Link Budget / Power Chain
  * Local, offline-first: calculate cascade power and prospective EIRP at every stage.
  * Conducted power is not actual EIRP until an antenna (gain in dBi) is connected.
  */
@@ -64,12 +64,16 @@
   style.textContent=`
     .lb-top-btn{border-color:#d0af63!important;background:#304958!important;color:#ffecb2!important}
     .lb-top-btn:hover{background:#3d5d70!important}
-    dialog#linkBudgetDialog{width:min(1340px,calc(100vw - 22px));max-height:95vh;overflow:hidden;border-radius:18px;color:#173145}
+    dialog#linkBudgetDialog{width:min(1340px,calc(100vw - 22px));max-height:calc(100dvh - 16px);overflow:hidden;border-radius:18px;color:#173145;box-sizing:border-box}
+    /* Keep footer actions on screen regardless of content height; scroll the budget body only. */
+    dialog#linkBudgetDialog[open]{display:flex;flex-direction:column;height:min(94dvh,960px);max-height:calc(100dvh - 16px);padding:0}
+    #linkBudgetDialog .lb-head,#linkBudgetDialog .lb-footer{flex:0 0 auto}
+    #linkBudgetDialog .lb-scroll{flex:1 1 auto;min-height:0;max-height:none;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable}
     #linkBudgetDialog .lb-head{padding:16px 22px;background:#edf6fa;display:flex;align-items:center;justify-content:space-between;gap:16px;border-bottom:1px solid #cfdee5}
     #linkBudgetDialog .lb-head h2{font-size:1.38rem;line-height:1.2;margin:0;color:#123f54}
     #linkBudgetDialog .lb-head p{font-size:.79rem;margin:5px 0 0;color:#597684;max-width:750px}
     #linkBudgetDialog .lb-head-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-    #linkBudgetDialog .lb-scroll{overflow:auto;max-height:calc(95vh - 133px);padding:18px 22px 22px}
+    #linkBudgetDialog .lb-scroll{overflow:auto;padding:18px 22px 22px}
     #linkBudgetDialog .lb-inputs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:14px}
     #linkBudgetDialog .lb-card{background:#fff;border:1px solid #cbdde5;border-radius:12px;padding:14px}
     #linkBudgetDialog .lb-card h3{font-size:.92rem;margin:0 0 10px;color:#244f63}
@@ -123,17 +127,23 @@
     #linkBudgetDialog .lb-results-table tr.lb-selected{background:#fff4d8}
     #linkBudgetDialog .lb-results-table tr.lb-final{background:#eaf8ef;font-weight:800}
     #linkBudgetDialog .lb-results-table button{padding:6px 8px;border-radius:7px;background:#fff;border:1px solid #c2d5dd;font-size:.73rem;color:#275769;font-weight:750;cursor:pointer}
+    #linkBudgetDialog .lb-inspect-actions{display:flex;gap:6px;align-items:center;white-space:nowrap}
+    #linkBudgetDialog .lb-results-table .lb-remove-row{background:#fff2ee!important;color:#a22e2e!important;border-color:#ebc6bd!important}
+    #linkBudgetDialog .lb-results-table .lb-remove-row:hover{background:#ffe0d9!important}
+    #linkBudgetDialog #lbUndoDelete[hidden]{display:none!important}
     #linkBudgetDialog .lb-results-table tr.lb-selected button{background:#ffe19b}
     #linkBudgetDialog .lb-results-table td.lb-power{white-space:nowrap;font-variant-numeric:tabular-nums;font-weight:700}
     #linkBudgetDialog .lb-results-table small{display:block;font-size:.70rem;font-weight:450;color:#758995}
-    #linkBudgetDialog .lb-footer{padding:10px 22px;background:#f7fbfc;border-top:1px solid #dce8eb;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+    #linkBudgetDialog .lb-footer{padding:10px 22px max(12px,env(safe-area-inset-bottom));background:#f7fbfc;border-top:1px solid #dce8eb;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;min-width:0}
+    #linkBudgetDialog .lb-footer .lb-action-group{align-items:center;min-width:0}
+    #linkBudgetDialog .lb-footer button{flex-shrink:0}
     #linkBudgetDialog .lb-disclaimer{background:#fffaf0;border:1px solid #e8d6b2;border-radius:9px;padding:10px 13px;margin-top:12px;font-size:.76rem;color:#65563d;line-height:1.55}
     #linkBudgetDialog .lb-error{color:#9f392e!important}
     #linkBudgetDialog .lb-empty{text-align:center;padding:20px;background:#f6f9fa;color:#69808b;font-size:.82rem}
     #linkBudgetDialog .lb-section-label{font-size:.82rem;margin:13px 0 7px;color:#436374;font-weight:750}
     #linkBudgetDialog .lb-alert{margin:10px 0;color:#9b5d18;background:#fff4dd;border:1px solid #eed6a5;border-radius:8px;padding:8px 12px;font-size:.79rem}
     @media(max-width:860px){#linkBudgetDialog .lb-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}#linkBudgetDialog .lb-checkpoint{grid-template-columns:1fr 1fr}#linkBudgetDialog .lb-checkpoint>div:first-child{grid-column:1/-1}}
-    @media(max-width:650px){dialog#linkBudgetDialog{width:calc(100vw - 10px);max-height:98vh;border-radius:10px}#linkBudgetDialog .lb-head,#linkBudgetDialog .lb-scroll,#linkBudgetDialog .lb-footer{padding:12px}#linkBudgetDialog .lb-inputs{grid-template-columns:1fr}#linkBudgetDialog .lb-metric .v{font-size:1.12rem}#linkBudgetDialog .lb-head h2{font-size:1.18rem}}
+    @media(max-width:650px){dialog#linkBudgetDialog{width:calc(100vw - 10px);border-radius:10px}dialog#linkBudgetDialog[open]{height:calc(100dvh - 16px);max-height:calc(100dvh - 16px)}#linkBudgetDialog .lb-head,#linkBudgetDialog .lb-scroll,#linkBudgetDialog .lb-footer{padding:12px}#linkBudgetDialog .lb-footer{padding-bottom:max(12px,env(safe-area-inset-bottom))}#linkBudgetDialog .lb-inputs{grid-template-columns:1fr}#linkBudgetDialog .lb-metric .v{font-size:1.12rem}#linkBudgetDialog .lb-head h2{font-size:1.18rem}}
     @media print{#linkBudgetDialog{display:none!important}}
   `;
   document.head.appendChild(style);
@@ -146,7 +156,7 @@
 
   const dialog=document.createElement('dialog');dialog.id='linkBudgetDialog';dialog.setAttribute('aria-labelledby','lbTitle');
   dialog.innerHTML=`
-    <div class="lb-head"><div><h2 id="lbTitle">⚡ RF Link Budget <span style="font-size:.60em;color:#6b8793">v1.7</span></h2><p>Build a cascaded TX power chain with unlimited editable components (up to 250). Every stage shows conducted power and the EIRP <em>if your reference antenna were connected there</em>.</p></div><div class="lb-head-actions"><button type="button" class="btn sm" id="lbToFCC">⌕ P25 Site Finder</button><button type="button" class="btn sm" id="lbClose" aria-label="Close Link Budget">✕</button></div></div>
+    <div class="lb-head"><div><h2 id="lbTitle">⚡ RF Link Budget <span style="font-size:.60em;color:#6b8793">v1.8</span></h2><p>Build a cascaded TX power chain with unlimited editable components (up to 250). Every stage shows conducted power and the EIRP <em>if your reference antenna were connected there</em>.</p></div><div class="lb-head-actions"><button type="button" class="btn sm" id="lbToFCC">⌕ P25 Site Finder</button><button type="button" class="btn sm" id="lbClose" aria-label="Close Link Budget">✕</button></div></div>
     <div class="lb-scroll">
       <div class="lb-inputs">
         <section class="lb-card"><h3>1 · Transmitter / source power</h3><div class="lb-two"><div><label for="lbTxPower">TX output power</label><input id="lbTxPower" type="number" step="any" inputmode="decimal"/></div><div><label for="lbTxUnit">Input unit</label><select id="lbTxUnit"><option value="dBm">dBm</option><option value="dBW">dBW</option><option value="W">Watts (W)</option></select></div></div><p class="lb-help">Enter the known <strong>conducted power</strong> at the chain input. The initial 30 dBm (1 W) is a <strong>placeholder, not measured site data</strong>. Use per-channel power when budgeting one channel.</p><div class="lb-mini" id="lbTxConvert"></div></section>
@@ -159,7 +169,7 @@
       <div id="lbCheckpoint" class="lb-checkpoint" aria-live="polite"></div>
       <div class="lb-section-heading"><h3>Power along the chain</h3><span class="lb-muted">Blue = conducted power · Gold = EIRP if reference antenna connected here</span></div>
       <div class="lb-chart" id="lbChart" aria-label="Conducted power and prospective EIRP chart"></div>
-      <div class="lb-section-heading"><h3>4 · Inspect EIRP at any point</h3><span class="lb-muted">Choose a checkpoint to pin its power and potential EIRP above</span></div>
+      <div class="lb-section-heading"><h3>4 · Inspect EIRP at any point</h3><div class="lb-action-group"><span class="lb-muted">Inspect or delete individual gain/loss rows · TX and antenna stay</span><button type="button" id="lbUndoDelete" class="lb-preset" hidden>↶ Undo last deletion</button></div></div>
       <div class="lb-table-scroll"><table class="lb-results-table"><thead><tr><th>Checkpoint</th><th>Stage</th><th>Gain / loss</th><th>Conducted dBm</th><th>Conducted dBW</th><th>Conducted W</th><th>EIRP dBm</th><th>EIRP dBW</th><th>EIRP W</th></tr></thead><tbody id="lbResults"></tbody></table></div>
       <div class="lb-disclaimer"><strong>RF engineering distinction:</strong> Conducted power is measured inside the cable/equipment. The EIRP values in each intermediate row are <em>hypothetical</em>—the calculated EIRP <em>if the specified antenna were connected at that point</em>. The final green antenna row is the estimated EIRP for the complete chain. Antenna pattern, mismatch, per-channel vs aggregate power, hardware ratings, intermodulation, and field measurements are not modeled. All component inputs are <strong>dB</strong>; power results are <strong>dBm / dBW / watts (W)</strong>.</div>
       <div id="lbWarning" class="lb-alert" hidden></div>
@@ -184,7 +194,22 @@
     id('lbTxConvert').textContent=`Equivalent: ${formatDbm(st.sourceDbm)} · ${formatDbw(st.sourceDbm)} · ${fmtW(dBmToW(st.sourceDbm))}`;
     id('lbAntConvert').textContent=`Effective gain used in EIRP: ${rounded(effectiveAntenna())} dBi`;
   }
-  function add(type,name='',db=0){if(st.steps.length>=MAX_ROWS){window.alert('This budget already has the maximum of 250 components.');return}st.steps.push(newStep(type,name,db));renderComponents();renderCalc();save()}
+  let lastDeleted=null;
+  const clearUndo=()=>{lastDeleted=null;id('lbUndoDelete').hidden=true};
+  function removeStep(idToRemove){
+    const i=st.steps.findIndex(x=>x.id===idToRemove);
+    if(i<0)return false; // The source and final antenna checkpoints are never deletable.
+    const [removed]=st.steps.splice(i,1);
+    lastDeleted={step:removed,index:i};id('lbUndoDelete').hidden=false;
+    if(st.checkpoint===removed.id)st.checkpoint='final';
+    renderComponents();renderCalc();save();return true;
+  }
+  id('lbUndoDelete').addEventListener('click',()=>{
+    if(!lastDeleted||st.steps.length>=MAX_ROWS)return;
+    const {step,index}=lastDeleted;st.steps.splice(Math.min(index,st.steps.length),0,step);
+    st.checkpoint=step.id;clearUndo();renderComponents();renderCalc();save();
+  });
+  function add(type,name='',db=0){if(st.steps.length>=MAX_ROWS){window.alert('This budget already has the maximum of 250 components.');return}clearUndo();st.steps.push(newStep(type,name,db));renderComponents();renderCalc();save()}
   const presets={cable:['loss','Coaxial feedline loss',0],connector:['loss','Connector / adapter loss',0],coupler:['loss','Directional coupler insertion / tap loss',0],splitter:['loss','Splitter / distribution loss',0],amp:['gain','Amplifier gain',0]};
   dialog.addEventListener('click',e=>{const addBtn=e.target.closest('[data-lb-add]');if(addBtn){add(addBtn.dataset.lbAdd);return}const p=e.target.closest('[data-lb-preset]');if(p){const v=presets[p.dataset.lbPreset];if(v)add(...v);return}});
   function renderComponents(){
@@ -196,12 +221,13 @@
   comp.addEventListener('input',e=>{
     const input=e.target;if(!input?.dataset?.field)return;
     const x=getPart(input);if(!x)return;
+    clearUndo();
     if(input.dataset.field==='name')x.name=input.value.slice(0,90);
     if(input.dataset.field==='db'){const v=Number(input.value);if(!Number.isFinite(v)||v<0||v>200||input.value===''){input.setCustomValidity('Enter a number from 0 to 200 dB');return}input.setCustomValidity('');x.db=v;}
     if(input.dataset.field==='type')x.type=input.value==='gain'?'gain':'loss';
     renderCalc();save();
   });
-  comp.addEventListener('change',e=>{if(e.target?.dataset?.field==='type'){const x=getPart(e.target);if(x){x.type=e.target.value;renderCalc();save()}}});
+  comp.addEventListener('change',e=>{if(e.target?.dataset?.field==='type'){const x=getPart(e.target);if(x){clearUndo();x.type=e.target.value;renderCalc();save()}}});
   comp.addEventListener('click',e=>{
     const btn=e.target.closest('[data-op]');if(!btn)return;
     const item=getPart(btn);const i=st.steps.indexOf(item);if(i<0)return;
@@ -209,9 +235,9 @@
       case 'up': if(i>0)[st.steps[i-1],st.steps[i]]=[st.steps[i],st.steps[i-1]];break;
       case 'down': if(i<st.steps.length-1)[st.steps[i+1],st.steps[i]]=[st.steps[i],st.steps[i+1]];break;
       case 'copy': if(st.steps.length<MAX_ROWS){const row=newStep(item.type,item.name,item.db);st.steps.splice(i+1,0,row)}break;
-      case 'delete': st.steps.splice(i,1);if(st.checkpoint===item.id)st.checkpoint='final';break;
+      case 'delete': removeStep(item.id);return;
     }
-    renderComponents();renderCalc();save();
+    clearUndo();renderComponents();renderCalc();save();
   });
   id('lbTxPower').addEventListener('input',e=>{
     const n=Number(e.target.value);const valid=Number.isFinite(n)&&e.target.value.trim()!==''&&(st.sourceUnit!=='W'||n>0);
@@ -229,9 +255,14 @@
     // Preserve the physical antenna gain when switching dBi <-> dBd.
     const dBi=effectiveAntenna();st.antennaUnit=e.target.value;st.antennaGain=Number((dBi-(st.antennaUnit==='dBd'?2.15:0)).toFixed(5));renderTop();renderCalc();save();
   });
-  function onPointChange(e){const b=e.target.closest('[data-checkpoint]');if(!b)return;st.checkpoint=b.dataset.checkpoint;renderCalc();save();}
+  function onPointChange(e){
+    const remove=e.target.closest('[data-remove-stage]');
+    if(remove){removeStep(remove.dataset.removeStage);return;}
+    const b=e.target.closest('[data-checkpoint]');if(!b)return;
+    st.checkpoint=b.dataset.checkpoint;renderCalc();save();
+  }
   id('lbResults').addEventListener('click',onPointChange);
-  function displayRow(r,label){return `<tr class="${st.checkpoint===r.id?'lb-selected':''} ${r.id==='final'?'lb-final':''}"><td><button type="button" data-checkpoint="${esc(r.id)}" aria-pressed="${st.checkpoint===r.id}">${st.checkpoint===r.id?'● Selected':'◎ Inspect'}</button></td><td>${esc(label)}<small>${r.type==='final'?'Reference antenna connected':r.type==='source'?'TX output':r.type==='gain'?'+ Gain stage':'− Loss stage'}</small></td><td>${r.type==='gain'?'+':r.type==='loss'?'−':'—'}${r.type==='gain'||r.type==='loss'?`${rounded(r.db)} dB`:''}</td><td class="lb-power">${formatDbm(r.conductedDbm)}</td><td class="lb-power">${formatDbw(r.conductedDbm)}</td><td class="lb-power">${formatWattDbm(r.conductedDbm)}</td><td class="lb-power">${formatDbm(r.ifAntennaDbm)}</td><td class="lb-power">${formatDbw(r.ifAntennaDbm)}</td><td class="lb-power">${formatWattDbm(r.ifAntennaDbm)}</td></tr>`}
+  function displayRow(r,label){return `<tr class="${st.checkpoint===r.id?'lb-selected':''} ${r.id==='final'?'lb-final':''}"><td><div class="lb-inspect-actions"><button type="button" data-checkpoint="${esc(r.id)}" aria-pressed="${st.checkpoint===r.id}">${st.checkpoint===r.id?'● Selected':'◎ Inspect'}</button>${r.type==='gain'||r.type==='loss'?`<button type="button" class="lb-remove-row" data-remove-stage="${esc(r.id)}" aria-label="Delete ${esc(label)} component from budget" title="Delete this stage and recalculate downstream power">× Delete</button>`:''}</div></td><td>${esc(label)}<small>${r.type==='final'?'Reference antenna connected':r.type==='source'?'TX output':r.type==='gain'?'+ Gain stage':'− Loss stage'}</small></td><td>${r.type==='gain'?'+':r.type==='loss'?'−':'—'}${r.type==='gain'||r.type==='loss'?`${rounded(r.db)} dB`:''}</td><td class="lb-power">${formatDbm(r.conductedDbm)}</td><td class="lb-power">${formatDbw(r.conductedDbm)}</td><td class="lb-power">${formatWattDbm(r.conductedDbm)}</td><td class="lb-power">${formatDbm(r.ifAntennaDbm)}</td><td class="lb-power">${formatDbw(r.ifAntennaDbm)}</td><td class="lb-power">${formatWattDbm(r.ifAntennaDbm)}</td></tr>`}
   function buildChart(rows){
     const w=980,h=235,L=70,R=30,T=23,B=48;
     const all=[...rows.flatMap(r=>[r.conductedDbm,r.ifAntennaDbm])];const min=Math.floor((Math.min(...all)-5)/10)*10,max=Math.ceil((Math.max(...all)+5)/10)*10;
@@ -275,19 +306,19 @@
     const lines=[['Stage','Type','Component','Gain_or_Loss_dB','Conducted_dBm','Conducted_dBW','Conducted_W','EIRP_if_antenna_here_dBm','EIRP_if_antenna_here_dBW','EIRP_if_antenna_here_W']];
     rows.forEach((r,i)=>lines.push([i,r.type,r.name,r.delta??'',rounded(r.conductedDbm,4),rounded(r.conductedDbm-30,4),toCsvWatts(r.conductedDbm),rounded(r.ifAntennaDbm,4),rounded(r.ifAntennaDbm-30,4),toCsvWatts(r.ifAntennaDbm)]));
     lines.push(['','','Reference antenna gain (dBi)',rounded(res.antennaDbi,4),'','','','','','']);
-    download('BDA_Link_Budget_v1.7.csv',lines.map(line=>line.map(csvCell).join(',')).join('\r\n'),'text/csv;charset=utf-8');
+    download('BDA_Link_Budget_v1.8.csv',lines.map(line=>line.map(csvCell).join(',')).join('\r\n'),'text/csv;charset=utf-8');
   }
   id('lbExportCSV').addEventListener('click',exportCSV);
-  id('lbExportJSON').addEventListener('click',()=>download('BDA_Link_Budget_v1.7.json',JSON.stringify({format:'BDA-Link-Budget',version:'1.7',exportedAt:new Date().toISOString(),...st},null,2),'application/json'));
+  id('lbExportJSON').addEventListener('click',()=>download('BDA_Link_Budget_v1.8.json',JSON.stringify({format:'BDA-Link-Budget',version:'1.8',exportedAt:new Date().toISOString(),...st},null,2),'application/json'));
   id('lbImportJSON').addEventListener('click',()=>id('lbFile').click());
   id('lbFile').addEventListener('change',async e=>{
     const file=e.target.files?.[0];if(!file)return;
     if(file.size>4_000_000){window.alert('Link budget file is too large.');e.target.value='';return}
-    try{const d=JSON.parse(await file.text());if(d.format!=='BDA-Link-Budget'||!Array.isArray(d.steps))throw new Error('Not a BDA link budget JSON file');st=scrub(d);renderAll();save()}
+    try{const d=JSON.parse(await file.text());if(d.format!=='BDA-Link-Budget'||!Array.isArray(d.steps))throw new Error('Not a BDA link budget JSON file');st=scrub(d);clearUndo();renderAll();save()}
     catch(err){window.alert('Unable to load budget: '+err.message)}finally{e.target.value=''}
   });
-  id('lbReset').addEventListener('click',()=>{if(st.steps.length&&!window.confirm('Clear all link-budget components and restore default power settings?'))return;st=defaultState();renderAll();save()});
-  id('lbExample').addEventListener('click',()=>{if(st.steps.length&&!window.confirm('Replace current budget with a sample RF chain? Export JSON first if you want to keep it.'))return;st=defaultState();st.sourceDbm=30;st.antennaGain=6;st.steps=[newStep('loss','Feedline',3),newStep('gain','Amplifier',20),newStep('loss','Coupler / distribution',10)];renderAll();save()});
+  id('lbReset').addEventListener('click',()=>{if(st.steps.length&&!window.confirm('Clear all link-budget components and restore default power settings?'))return;st=defaultState();clearUndo();renderAll();save()});
+  id('lbExample').addEventListener('click',()=>{if(st.steps.length&&!window.confirm('Replace current budget with a sample RF chain? Export JSON first if you want to keep it.'))return;st=defaultState();st.sourceDbm=30;st.antennaGain=6;st.steps=[newStep('loss','Feedline',3),newStep('gain','Amplifier',20),newStep('loss','Coupler / distribution',10)];clearUndo();renderAll();save()});
   // Allow read-only engineering verification without opening the dialog.
-  window.BDA_LinkBudget=Object.freeze({version:'v1.7',open,calculate,dbmFromDisplay,displayFromDbm,effectiveAntenna,read:()=>JSON.parse(JSON.stringify(st))});
+  window.BDA_LinkBudget=Object.freeze({version:'v1.8',open,calculate,dbmFromDisplay,displayFromDbm,effectiveAntenna,read:()=>JSON.parse(JSON.stringify(st))});
 })();
