@@ -61,6 +61,7 @@
     .fcc-site-tag.fcc-distance-chip{background:#dff5eb;border-color:#9bd6b7;color:#096241;font-size:.78rem}
     .fcc-site-tag.fcc-distance-unavailable{background:#f6f6f7;color:#777;border-color:#ddd}
     .fcc-geo-closest{border-color:#58b99d;box-shadow:0 0 0 1px #c2e9db}
+    .bda-site-azimuth{margin:4px 0 7px;font-size:.83rem;font-weight:750;color:#175b76;line-height:1.4}
     @media(max-width:640px){.fcc-geo-fields .btn{flex:1}.fcc-geo-radius-field{flex:1 1 140px}}
     @media print{.fcc-geo-panel{display:none!important}}
   `;
@@ -92,6 +93,19 @@
     const a=Math.sin(dlat/2)**2+Math.cos(lat1*rad)*Math.cos(lat2*rad)*Math.sin(dlon/2)**2;
     return 3958.7613*2*Math.atan2(Math.sqrt(a),Math.sqrt(Math.max(0,1-a)));
   }
+
+  // v1.5 — initial true-north azimuth from job site to the FCC tower.
+  function azimuthTrue(a,b){
+    const rad=Math.PI/180;
+    const p1=Number(a.lat)*rad,p2=Number(b.lat)*rad;
+    const dlon=(Number(b.lon)-Number(a.lon))*rad;
+    const y=Math.sin(dlon)*Math.cos(p2);
+    const x=Math.cos(p1)*Math.sin(p2)-Math.sin(p1)*Math.cos(p2)*Math.cos(dlon);
+    if(Math.hypot(x,y)<1e-12)return null;
+    return (Math.atan2(y,x)*180/Math.PI+360)%360;
+  }
+  const directions=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+  const bearingText=angle=>angle.toFixed(1)+'°T ('+directions[Math.round(angle/22.5)%16]+')';
   function distanceTo(record){
     if(!reference)return null;
     const c=fccCoordinates(record);
@@ -155,6 +169,19 @@
       badge.title=mi===null?'This FCC entry has no usable tower coordinates.':
         `${mi.toFixed(3)} straight-line miles from ${reference.label}`;
       tags.prepend(badge);
+      // Display the bearing with each tower's GPS/site information.
+      if(mapped){
+        const gps=cards[i].querySelector('.fcc-coordinates');
+        const c=fccCoordinates(mapped);
+        if(gps&&c){
+          const a=azimuthTrue(reference,c),line=document.createElement('div');
+          line.className='bda-site-azimuth';
+          line.textContent='Azimuth from site → tower: '+(a===null?'undefined (same coordinates)':bearingText(a));
+          line.title='True-north initial great-circle bearing; magnetic headings need declination adjustment.';
+          gps.insertAdjacentElement('afterend',line);
+        }
+      }
+
       if(i===0&&mi!==null)cards[i].classList.add('fcc-geo-closest');
     }
     const mappedCount=displayGroups.filter(g=>g.records.some(rec=>fccCoordinates(rec))).length;
@@ -173,6 +200,7 @@
         distMiles(reference.lat,reference.lon,Number(tower.lat),Number(tower.lon)):null;
       const span=chips[i++].querySelector('span');
       if(span&&mi!==null)span.textContent+=` · ${mi<10?mi.toFixed(2):mi.toFixed(1)} mi`;
+      if(span&&mi!==null){const angle=azimuthTrue(reference,tower);if(angle!==null)span.textContent+=' · Az '+angle.toFixed(1)+'°T';}
     }
   };
 
