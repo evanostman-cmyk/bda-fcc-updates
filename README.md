@@ -83,3 +83,12 @@ For technical details see [README_FIRST.md](README_FIRST.md).
 - The online URL and GitHub repository name intentionally stay the same to preserve bookmarks and automatic FCC updates.
 - Existing browser storage keys and the format of previous project, budget, and Site Plan JSON files remain unchanged for compatibility.
 - Offline single-file release: `Batwing_RF_Suite_Evan_Andrew_v1.10_OFFLINE.html`.
+
+## v1.11 — Full workspace pages (November 23, 2026)
+- The four main tools—**Channel Planner, P25 Site Finder, Link Budget, and Site Plan**—now live in **separate, full-width pages inside Batwing RF Suite**, selected from a sticky navigation bar.
+- No tool is dismissed by clicking outside its content. The former close buttons are now explicit **← Channel Planner** actions; tool-to-tool navigation remains available.
+- The desktop navigation is one row; on smaller displays it wraps into two rows. The Channel Planner's project controls appear only on its page.
+- The FCC search, budget and DAS plan states stay in memory while switching pages; browser-local storage and JSON export formats are unchanged.
+- Small, purpose-specific dialogs—including terrain profiles, mascot artwork, system selection, and channel editing—remain popups.
+- You can link directly to `#planner`, `#fcc`, `#budget` or `#siteplan` on the hosted site.
+- **Offline single-file build:** `Batwing_RF_Suite_Evan_Andrew_v1.11_OFFLINE.html`. No network required for channel planning, Link Budget, or Site Plan operations.
