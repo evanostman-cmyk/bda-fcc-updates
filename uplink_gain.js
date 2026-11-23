@@ -57,7 +57,7 @@
        <div class="ug-metric"><small>Isolation margin at test gain</small><strong id="ugOutHeadroom">—</strong></div>
        <div class="ug-metric"><small>Noise change: ON − OFF</small><strong id="ugOutNoise">—</strong></div>
        <div class="ug-metric"><small>Conducted output / donor EIRP</small><strong id="ugOutEirp">—</strong></div>
-    </div><div id="ugWarnings" role="status" aria-live="polite"></div></section>
+    </div><div id="ugPowerDetail" class="ug-hint" aria-live="polite"></div><div id="ugWarnings" role="status" aria-live="polite"></div></section>
     <section class="ug-card"><h3>3 · Optional conducted power and donor EIRP</h3><div class="ug-grid">
       <label>Measured BDA uplink input (dBm)<input type="number" step="0.1" id="ugInput" placeholder="Optional"></label>
       <label>Donor feeder loss (dB)<input type="number" step="0.1" min="0" id="ugDonorLoss" value="0"></label>
@@ -115,6 +115,8 @@
     put('ugOutSuggested',r.suggested);put('ugOutPredicted',r.predicted,' dBm');
     put('ugOutDelta',r.delta);put('ugOutHeadroom',r.headroom);put('ugOutNoise',r.noiseRise);
     $('ugOutEirp').textContent=r.power?r.power.conducted.toFixed(1)+' / '+r.power.eirp.toFixed(1)+' dBm':'—';
+    const watts=n=>n<0.0001?n.toExponential(3):Number(n.toPrecision(6)).toString();
+    $('ugPowerDetail').textContent=r.power?'Conducted: '+(r.power.conducted-30).toFixed(1)+' dBW / '+watts(r.power.conductedW)+' W. Donor EIRP: '+(r.power.eirp-30).toFixed(1)+' dBW / '+watts(r.power.eirpW)+' W.':'';
     $('ugWarnings').textContent=r.notes.join('\n');
     $('ugWarnings').classList.toggle('ug-alert',r.noiseOk!==true||r.notes.some(s=>s.includes('STOP')||s.includes('exceeds')||s.includes('needs more')));
     try{localStorage.setItem(STORAGE,JSON.stringify(Object.fromEntries(ids.map(id=>[id,$(id).value]))));$('ugState').textContent='Inputs saved in this browser.'}catch(e){$('ugState').textContent='Browser storage unavailable; export your results.'}
