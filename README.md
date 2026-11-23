@@ -33,3 +33,10 @@ For technical details see [README_FIRST.md](README_FIRST.md).
 - Previously viewed profiles are cached locally in the browser (up to 24 routes) for possible offline reuse. Cache availability depends on browser storage.
 - **Important:** The profile is *sampled ground elevation*, not an RF line-of-sight or Fresnel clearance report. It does not model AGL antenna heights, obstructions, trees, buildings, Earth curvature or propagation. FCC license coordinates do not prove an on-air transmitter.
 - **Offline HTML:** `BDA_Channel_Planner_Evan_Andrew_v1.4_OFFLINE.html` is a standalone single-file build and does not require the separate elevation script.
+
+## v1.5 — Site-to-tower true azimuth (November 23, 2026)
+- After entering an address or GPS reference under P25 Site Finder, mapped tower cards show **Azimuth from site → tower**, alongside FCC GPS and distance.
+- Bearings are **initial great-circle bearings clockwise from true north**, shown in decimal degrees and 16-point compass notation (e.g. 089.8°T (E)).
+- Selected KML tower chips include their true azimuth, and the elevation popup includes an azimuth metric even before terrain data loads.
+- This is **not a magnetic bearing**. Apply local magnetic declination for magnetic compass alignment; FCC tower coordinates and license data remain subject to field verification.
+- Offline release: `BDA_Channel_Planner_Evan_Andrew_v1.5_OFFLINE.html`.
