@@ -30,7 +30,7 @@
     .bda-elev-body{padding:20px 23px;display:grid;gap:15px}
     .bda-elev-status{font-size:.89rem;color:#20516a;min-height:1.5em;line-height:1.5}
     .bda-elev-status.bda-elev-error{color:#b02127}
-    .bda-elev-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+    .bda-elev-summary{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:9px}
     .bda-elev-metric{border:1px solid #d5e5eb;border-radius:10px;background:#f4fafc;padding:12px 14px}
     .bda-elev-metric small{font-size:.68rem;color:#516b79;display:block;margin-bottom:4px;letter-spacing:.02em}
     .bda-elev-metric strong{font-size:1.19rem;font-variant-numeric:tabular-nums}
@@ -40,6 +40,7 @@
     .bda-elev-buttons{display:flex;gap:9px;flex-wrap:wrap}
     .bda-elev-buttons button{padding:9px 14px;border-radius:7px;cursor:pointer;border:1px solid #b7cfdc;background:#eaf3f8;color:#14516b;font-weight:700}
     .bda-elev-buttons button:disabled{opacity:.5;cursor:not-allowed}
+    @media(min-width:671px) and (max-width:900px){.bda-elev-summary{grid-template-columns:repeat(3,minmax(0,1fr))}}
     .bda-elev-note{font-size:.78rem;line-height:1.55;color:#526c78;margin:0}
     .bda-elev-note strong{color:#254c5e}
     @media(max-width:670px){.bda-elev-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.bda-elev-head{padding:13px 15px}.bda-elev-body{padding:13px}.bda-elev-metric{padding:8px}.bda-elev-metric strong{font-size:1.05rem}}
@@ -48,13 +49,14 @@
   const dlg = document.createElement('dialog');
   dlg.id = 'fccElevationDialog';
   dlg.setAttribute('aria-label', 'Terrain elevation between site and FCC tower');
-  dlg.innerHTML = `<div class="bda-elev-head"><div><h3>⛰ Terrain Elevation Profile <span style="font-size:.72em;opacity:.7">v1.4</span></h3>
+  dlg.innerHTML = `<div class="bda-elev-head"><div><h3>⛰ Terrain Elevation Profile <span style="font-size:.72em;opacity:.7">v1.5</span></h3>
     <small id="bdaElevSubtitle">Site address → FCC licensed transmitter location</small></div>
     <button type="button" class="bda-elev-close" id="bdaElevClose" aria-label="Close elevation profile">✕</button></div>
     <div class="bda-elev-body">
       <div id="bdaElevStatus" class="bda-elev-status" role="status" aria-live="polite">Choose a mapped tower and site address.</div>
       <div id="bdaElevMetrics" class="bda-elev-summary" hidden>
         <div class="bda-elev-metric"><small>STRAIGHT-LINE DISTANCE</small><strong id="bdaElevDistance">—</strong></div>
+        <div class="bda-elev-metric"><small>SITE → TOWER AZIMUTH</small><strong id="bdaElevAzimuth">—</strong></div>
         <div class="bda-elev-metric"><small>SITE GROUND ELEVATION</small><strong id="bdaElevSite">—</strong></div>
         <div class="bda-elev-metric"><small>TOWER GROUND ELEVATION</small><strong id="bdaElevTower">—</strong></div>
         <div class="bda-elev-metric"><small>HIGHEST SAMPLED GROUND</small><strong id="bdaElevMax">—</strong></div>
@@ -67,7 +69,7 @@
         <button type="button" id="bdaElevReload" disabled>↻ Refresh elevations</button>
       </div>
       <p class="bda-elev-note" id="bdaElevSource">Source and sample count will appear when terrain data loads.</p>
-      <p class="bda-elev-note"><strong>Engineering note:</strong> This chart shows sampled <em>ground terrain</em> only. It does not include the transmitter antenna AGL, building receiver antenna height, trees, buildings, Earth-curvature effects, Fresnel-zone clearance or actual RF propagation. FCC coordinates indicate a licensed location, not guaranteed active P25 transmission. Internet is required for new profiles; previously loaded profiles may work offline from this browser's cache.</p>
+      <p class="bda-elev-note"><strong>Azimuth:</strong> Bearing is clockwise from <strong>true north</strong> (000°T = north, 090°T = east); local magnetic declination is not applied. <strong>Engineering note:</strong> This chart shows sampled <em>ground terrain</em> only. It does not include the transmitter antenna AGL, building receiver antenna height, trees, buildings, Earth-curvature effects, Fresnel-zone clearance or actual RF propagation. FCC coordinates indicate a licensed location, not guaranteed active P25 transmission. Internet is required for new profiles; previously loaded profiles may work offline from this browser's cache.</p>
     </div>`;
   document.body.appendChild(dlg);
   const status = (msg, isError = false) => { $('bdaElevStatus').textContent = msg; $('bdaElevStatus').classList.toggle('bda-elev-error', isError); };
@@ -78,6 +80,19 @@
   const xml = x => String(x ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
   const valid = (lat, lon) => Number.isFinite(lat) && Number.isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180 && !(lat === 0 && lon === 0);
   const degrees = Math.PI / 180;
+  // Initial true-north bearing, not a magnetic or measured antenna heading.
+  function bearingTrue(a,b){
+    const p1=Number(a.lat)*degrees,p2=Number(b.lat)*degrees;
+    const dl=(Number(b.lon)-Number(a.lon))*degrees;
+    const y=Math.sin(dl)*Math.cos(p2);
+    const x=Math.cos(p1)*Math.sin(p2)-Math.sin(p1)*Math.cos(p2)*Math.cos(dl);
+    if(Math.hypot(x,y)<1e-12)return null;
+    return (Math.atan2(y,x)*180/Math.PI+360)%360;
+  }
+  function bearingLabel(a,b){
+    const angle=bearingTrue(a,b);
+    return angle===null?'Undefined':angle.toFixed(1)+'°T';
+  }
   const toVector = (lat, lon) => [Math.cos(lat * degrees) * Math.cos(lon * degrees), Math.cos(lat * degrees) * Math.sin(lon * degrees), Math.sin(lat * degrees)];
   function greatCircleSamples(start, end, count) {
     const v = toVector(start.lat, start.lon), w = toVector(end.lat, end.lon);
@@ -256,7 +271,8 @@
     const distanceMi=pathMiles(start,end);
     const key=cacheKey(start,end);
     current={start,end,siteLabel:String(a.label||'Job site'),tower:{...tower},key,profile:null,distanceMi};
-    $('bdaElevSubtitle').textContent=`${current.siteLabel} → ${tower.callsign||'Tower'} · ${tower.site||tower.city||''} · ${distanceMi.toFixed(2)} mi`;
+    $('bdaElevSubtitle').textContent=`${current.siteLabel} → ${tower.callsign||'Tower'} · ${tower.site||tower.city||''} · ${distanceMi.toFixed(2)} mi · Az ${bearingLabel(start,end)}`;
+    $('bdaElevAzimuth').textContent=bearingLabel(start,end);
     $('bdaElevMetrics').hidden=true;for(const name of ['bdaElevKML','bdaElevCSV','bdaElevReload'])$(name).disabled=true;
     $('bdaElevChart').textContent='Loading terrain elevations…';$('bdaElevHover').textContent='';
     $('bdaElevSource').textContent='Open Topo Data / USGS. Terrain sampling requires internet unless this route is already cached.';
@@ -291,7 +307,7 @@
     const rows=['distance_miles,latitude,longitude,terrain_elevation_ft,source'];
     const source=JSON.stringify(c.profile.source);
     for(const p of c.profile.points)rows.push(`${p.mi.toFixed(4)},${p.lat.toFixed(7)},${p.lon.toFixed(7)},${Number.isFinite(p.ft)?p.ft.toFixed(2):''},${source}`);
-    download(`FCC_Terrain_${clean(c.tower.callsign)}_v1.4.csv`,'text/csv;charset=utf-8',rows.join('\r\n'));
+    download(`FCC_Terrain_${clean(c.tower.callsign)}_v1.5.csv`,'text/csv;charset=utf-8',rows.join('\r\n'));
   });
   $('bdaElevKML').addEventListener('click',()=>{
     const c=current;if(!c?.profile)return;
@@ -300,8 +316,8 @@
       `<Placemark><name>${xml('FCC transmitter: '+c.tower.callsign)}</name><description>${xml(c.tower.licensee||'')}</description><Point><coordinates>${c.end.lon},${c.end.lat},0</coordinates></Point></Placemark>`+
       `<Placemark><name>Site-to-tower terrain path</name><description>Great-circle ground path. Not an RF path or Fresnel clearance model.</description><Style><LineStyle><color>ff00b0fb</color><width>3</width></LineStyle></Style><LineString><tessellate>1</tessellate><altitudeMode>clampToGround</altitudeMode><coordinates>${coords}</coordinates></LineString></Placemark>`;
     const kml=`<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>${xml('Elevation route to '+c.tower.callsign)}</name>${placemarks}</Document></kml>`;
-    download(`FCC_Path_${clean(c.tower.callsign)}_v1.4.kml`,'application/vnd.google-earth.kml+xml;charset=utf-8',kml);
+    download(`FCC_Path_${clean(c.tower.callsign)}_v1.5.kml`,'application/vnd.google-earth.kml+xml;charset=utf-8',kml);
   });
   // Public diagnostic interface: does not reveal or persist current job-site address.
-  window.BDA_ElevationProfile = Object.freeze({openTower:openProfile,version:'v1.4'});
+  window.BDA_ElevationProfile = Object.freeze({openTower:openProfile,version:'v1.5'});
 })();
