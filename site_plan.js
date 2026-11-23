@@ -333,7 +333,7 @@
  const safeFile=s=>String(s).replace(/[^A-Za-z0-9_-]+/g,'_').slice(0,55)||'site';
  get('bspExportSVG').addEventListener('click',()=>download(`DAS_Site_Plan_${safeFile(st.site)}_v1.9.svg`,lastGraphic?.svg||svgGraphic().svg,'image/svg+xml;charset=utf-8'));
  get('bspExportJSON').addEventListener('click',()=>download(`DAS_Site_Plan_${safeFile(st.site)}_v1.9.json`,JSON.stringify({...st,exportedAt:new Date().toISOString()},null,2),'application/json'));
- const cell=x=>{let v=String(x??'');if(/^[\s]*[=+@\-]/.test(v))v="'"+v;return '"'+v.replace(/"/g,'""')+'"'};
+ const cell=x=>{let v=String(x??'');if(/^[\s]*[=+@\-]/.test(v) && !Number.isFinite(Number(v)))v="'"+v;return '"'+v.replace(/"/g,'""')+'"'};
  get('bspExportCSV').addEventListener('click',()=>{
   const {results}=evaluate();const rows=[['Site','Component_ID','Parent_ID','Path','Type','Component','Input_dBm','Delta_dB','Conducted_dBm','Conducted_dBW','Conducted_W','Antenna_gain_dBi','Antenna_EIRP_dBm','Antenna_EIRP_dBW','Antenna_EIRP_W']];
   for(const n of st.nodes){const r=results.get(n.id);if(!r)continue;rows.push([st.site,n.id,n.parent||'',nodePath(n),n.type,n.name,fmt(r.input,5),fmt(r.delta,5),fmt(r.out,5),fmt(r.out-30,5),watts(r.out).toPrecision(12),n.type==='antenna'?n.gainDbi:'',r.eirp===null?'':fmt(r.eirp,5),r.eirp===null?'':fmt(r.eirp-30,5),r.eirp===null?'':watts(r.eirp).toPrecision(12)])}
