@@ -44,6 +44,9 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
+      # GitHub artifact indexing can lag artifact upload by several seconds.
+      - name: Allow uploaded Pages artifact to be indexed
+        run: sleep 20
       - name: Deploy GitHub Pages
         id: deploy
         uses: actions/deploy-pages@v4
