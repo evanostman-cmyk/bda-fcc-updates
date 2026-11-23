@@ -66,3 +66,13 @@ For technical details see [README_FIRST.md](README_FIRST.md).
 - **Undo last deletion** restores the most recently deleted component to its previous position.
 - Both original component-table row deletion and the new inspector deletion update the same saved browser budget. Storage key remains unchanged, so previously saved v1.6/v1.7 budgets continue to load.
 - Offline file: `BDA_Channel_Planner_Evan_Andrew_v1.8_OFFLINE.html`
+
+## v1.9 — Branching DAS Site Plan (November 23, 2026)
+- **🗺 Site Plan** now appears beside **⚡ Link Budget** and **⌕ P25 Site Finder**. It opens a fully offline, interactive SVG **signal-flow schematic**, not a geographic building map.
+- Starting with a single conducted TX/BDA source, click a diagram component to **add or insert** a **2–8 way splitter**, **directional coupler**, **coax cable**, **amplifier**, **attenuator/loss**, **connector** or **server antenna**.
+- A splitter creates its output port branches automatically. Each equal splitter output starts at **input − 10 log10(port count) − entered excess insertion loss**, in dB. A directional coupler creates separate **through** and **tap** paths with user-entered losses.
+- Coax sections use **length (feet) × manufacturer/measurement loss (dB per 100 ft) / 100**. Every branch carries its own running conducted power in **dBm, dBW and W**; antenna endpoints additionally show **EIRP = conducted dBm + antenna dBi**.
+- Click any node for its path, input/output power, stage delta, and **hypothetical EIRP with the user-entered test antenna**; edit its parameters or insert a new device on the selected branch.
+- Supports selective deletion, one-level **Undo delete**, loading a two-wing sample network, copying TX source power from the existing linear Link Budget, diagram zoom, **SVG schematic export**, **per-element CSV**, standalone **JSON save/load**, and browser-local saving.
+- **Engineering limitations:** a preliminary **single-input TX distribution-tree** model, not a floor plan or real map. It excludes reflected power, PIM, RF exposure, antenna patterns, coverage, Fresnel/LOS, split mismatch, power-combining, and hardware ratings. Default non-splitter device losses/gains are **0 dB placeholders**: use actual manufacturer specs and field measurements. Cable attenuation varies with frequency; the operator must enter the correct value. The displayed EIRP at intermediate non-antenna nodes is a hypothetical test-antenna value.
+- **Offline single HTML:** `BDA_Channel_Planner_Evan_Andrew_v1.9_OFFLINE.html`. The new site planner works without internet and without FCC data.
