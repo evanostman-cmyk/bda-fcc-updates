@@ -205,7 +205,7 @@
     }
     for(let i=0;i<=4;i++){
       const xx=L+plotW*i/4;
-      drawing+=`<text x="${xx.toFixed(2)}" y="${H-15}" text-anchor="middle" fill="#526b79" font-size="14">${(distanceMi*i/4).toFixed(distanceMi<10?2:1)} mi</text>`;
+      drawing+=`<text x="${xx.toFixed(2)}" y="${H-15}" text-anchor="${i===0?'start':i===4?'end':'middle'}" fill="#526b79" font-size="14">${(distanceMi*i/4).toFixed(distanceMi<10?2:1)} mi</text>`;
     }
     for(const seg of segments){
       const path = seg.map((p,i)=>(i?'L':'M')+p.x.toFixed(2)+','+p.y.toFixed(2)).join(' ');
