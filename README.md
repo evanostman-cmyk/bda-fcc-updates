@@ -40,3 +40,13 @@ For technical details see [README_FIRST.md](README_FIRST.md).
 - Selected KML tower chips include their true azimuth, and the elevation popup includes an azimuth metric even before terrain data loads.
 - This is **not a magnetic bearing**. Apply local magnetic declination for magnetic compass alignment; FCC tower coordinates and license data remain subject to field verification.
 - Offline release: `BDA_Channel_Planner_Evan_Andrew_v1.5_OFFLINE.html`.
+
+## v1.6 — RF Link Budget / EIRP checkpoints (November 23, 2026)
+- **⚡ Link Budget** appears directly next to **⌕ P25 Site Finder** in the top navigation; dialogs can switch between the two tools.
+- Enter TX conducted power in **dBm, dBW, or W**; changing input units preserves the original physical power.
+- Add, edit, copy, reorder, and remove up to **250 user-defined gain/loss components**. Presets for coax, connectors, couplers, splitters, and amplifiers start at **0 dB** and must be populated with real manufacturer or measured data.
+- Every checkpoint shows running **conducted power in dBm/dBW** plus **EIRP if the reference antenna were connected at that point** in dBm/dBW. Choose any checkpoint for a pinned readout; an interactive power-chain chart shows both values.
+- Antenna gain can be entered in **dBi or dBd** (dBd + 2.15 dB = dBi). The final EIRP is the conducted output after all components plus antenna gain.
+- Save budgets in browser storage; export/import a standalone **JSON** budget or export a stage-by-stage **CSV**. The Link Budget does not require internet access, an FCC database, or GitHub.
+- **Engineering distinction:** intermediate EIRP values are hypothetical until an antenna is actually connected at that point; this is a **TX conducted power and EIRP chain** tool, not a received-power/FSPL, Fresnel-zone or path-propagation calculator. Enter the correct single-channel or aggregate source power. The default 30 dBm and 0 dBi values are **placeholders**, not design assumptions.
+- Offline release: `BDA_Channel_Planner_Evan_Andrew_v1.6_OFFLINE.html` (single self-contained HTML file).
