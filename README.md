@@ -23,3 +23,13 @@ Once GitHub Pages is enabled and the first FCC workflow succeeds, open:
 **Privacy:** GitHub Pages for this public repository is public. Do not commit private customer/project files or confidential radio data.
 
 For technical details see [README_FIRST.md](README_FIRST.md).
+
+## v1.4 — Terrain elevation profiles (November 23, 2026)
+- In **P25 Site Finder**, set your job-site address or GPS coordinates and click **Find towers**.
+- For any mapped FCC transmitter, select **⛰ Elevation profile** to see a popup terrain profile along the geodesic site-to-tower path.
+- Available actions: inspect elevations with the chart cursor, export ground-path **KML**, export sampled **CSV**.
+- Selected KML towers also have a **Profile** button.
+- Terrain is requested on demand from Open Topo Data (USGS NED / SRTM), with a USGS 3DEP EPQS fallback; this requires an internet connection for a new path.
+- Previously viewed profiles are cached locally in the browser (up to 24 routes) for possible offline reuse. Cache availability depends on browser storage.
+- **Important:** The profile is *sampled ground elevation*, not an RF line-of-sight or Fresnel clearance report. It does not model AGL antenna heights, obstructions, trees, buildings, Earth curvature or propagation. FCC license coordinates do not prove an on-air transmitter.
+- **Offline HTML:** `BDA_Channel_Planner_Evan_Andrew_v1.4_OFFLINE.html` is a standalone single-file build and does not require the separate elevation script.
