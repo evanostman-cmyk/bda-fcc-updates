@@ -135,3 +135,11 @@ For technical details see [README_FIRST.md](README_FIRST.md).
 - GitHub Pages publishes **coverage_survey.js** before `workspace_pages.js`; a new all-in-one offline distribution **Batwing_RF_Suite_Evan_Andrew_v1.14_OFFLINE.html** includes the survey alongside all existing Batwing tools. Older standalone HTML copies do not upgrade themselves.
 
 **Protocol caution:** Real codes and AHJs can differ on required grid sizes, critical area definitions, coverage targets, frequencies, DAQ thresholds, measurement methods and repeat testing. For example, published guidance from NFPA and various AHJs describes different details. Do not substitute the app's configurable counting scheme for the jurisdiction's adopted requirements, floor-area sampling, or the approved commissioning test plan.
+
+## November 24, 2026 — two-pass code and RF audit
+
+The detailed findings and test scope are documented in **[AUDIT_REPORT_2026-11-24.md](AUDIT_REPORT_2026-11-24.md)**. The audit reviewed the main HTML, 10 external JavaScript modules, Python FCC ULS builders, offline HTML and GitHub Pages workflow. 38 synchronous source-level regression checks and 1,050 additional deterministic edge-case tests passed; two KMZ ZIP method tests are also included for execution under Node 22 in GitHub Actions.
+
+Audit fixes included: auto-save of unsaved coverage-grid measurements when changing cells, floors, tabs, exporting or closing; a refresh warning for pending edits; checking **absolute** uplink tower-noise ON/OFF difference (not just noise increases); routing >200,000-row JSON under 55 MB to the nationwide FCC streaming importer; and **blocking** Channel Planner exports when a proposed filter does not cover assumed signal occupancy.
+
+GitHub Actions now runs the regression and Python syntax checks before deployment and cancels obsolete in-progress publish jobs. **Manual verification is still required** for the current hosted deployment, actual desktop/Android workflows, device-specific KMZ files, report printing, hardware readings, and AHJ/code compliance. The all-in-one Batwing_RF_Suite_Evan_Andrew_v1.14_OFFLINE.html file was rebuilt with the latest audit fixes.
