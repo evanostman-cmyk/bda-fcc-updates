@@ -17,7 +17,6 @@ on:
       - 'workspace_pages.js'
       - 'smart_site_plan.js'
       - 'rf_path.js'
-      - 'coverage_survey.js'
       - 'scripts/**'
       - '.github/workflows/publish_fcc.yml'
 permissions:
