@@ -23,6 +23,7 @@
           placeholder="123 Main St, Tampa, FL 33602  or  27.9506, -82.4572" />
       </div>
       <button id="fccGeoFind" class="btn primary" type="button">📍 Find towers</button>
+      <button id="fccGeoViewTowers" class="btn" type="button" aria-controls="fccTowerResults" title="Jump to the transmitter tower cards below">↓ View towers</button>
       <button id="fccGeoClear" class="btn" type="button">Clear</button>
       <div class="field fcc-geo-radius-field">
         <label for="fccGeoRadius">Distance filter</label>
@@ -53,6 +54,9 @@
     .fcc-geo-fields .field{min-width:140px}.fcc-geo-address-field{flex:1 1 260px}
     .fcc-geo-address-field input{width:100%}.fcc-geo-radius-field{flex:0 1 180px}
     .fcc-geo-fields button{min-height:42px;white-space:nowrap}
+    #fccGeoViewTowers{color:#0a6578;border-color:#92bdc8;background:#fff;font-weight:750}
+    #fccGeoViewTowers:hover:not(:disabled){background:#e1f4f5;border-color:#1681a0}
+    #fccTowerResults:focus-visible{outline:3px solid #1681a0;outline-offset:-3px}
     .fcc-geo-nearby{display:flex;align-items:center;gap:9px;font-size:.82rem;color:#264d61;font-weight:650;cursor:pointer}
     .fcc-geo-nearby input{accent-color:#1681a0;width:17px;height:17px;flex-shrink:0}
     .fcc-geo-status{font-size:.84rem;font-weight:700;color:#18546d;margin:0;line-height:1.55}
@@ -342,13 +346,13 @@
     let gps;
     try{gps=readGps(value)}catch(e){setStatus(e.message,true);return;}
     if(gps){
-      isLocating=true;$('fccGeoFind').disabled=true;$('fccGeoClear').disabled=true;
+      isLocating=true;$('fccGeoFind').disabled=true;$('fccGeoClear').disabled=true;$('fccGeoViewTowers').disabled=true;
       try{await useReference(gps)}catch(e){setStatus(`GPS was accepted but FCC state loading failed: ${e.message}. Select a state or use your cached FCC data.`,true)}
-      finally{isLocating=false;$('fccGeoFind').disabled=false;$('fccGeoClear').disabled=false}
+      finally{isLocating=false;$('fccGeoFind').disabled=false;$('fccGeoClear').disabled=false;$('fccGeoViewTowers').disabled=false}
       return;
     }
     if(!/[a-z]/i.test(value)){setStatus('For GPS use decimal latitude, longitude (e.g. 27.9506, -82.4572); otherwise enter a complete US street address.',true);return;}
-    isLocating=true;$('fccGeoFind').disabled=true;$('fccGeoClear').disabled=true;
+    isLocating=true;$('fccGeoFind').disabled=true;$('fccGeoClear').disabled=true;$('fccGeoViewTowers').disabled=true;
     setStatus('Finding the address through the US Census Geocoder…');
     try{
       const json=await censusGeocode(value);
@@ -365,8 +369,22 @@
       await useReference({lat,lon,label,state:/^[A-Z]{2}$/.test(st)?st:'',county});
     }catch(e){
       setStatus(`Address lookup unavailable: ${e.message}. Check your connection or enter GPS coordinates directly; saved FCC tower data still works offline.`,true);
-    }finally{isLocating=false;$('fccGeoFind').disabled=false;$('fccGeoClear').disabled=false;}
+    }finally{isLocating=false;$('fccGeoFind').disabled=false;$('fccGeoClear').disabled=false;$('fccGeoViewTowers').disabled=false;}
   }
+  // Jump past the FCC filters and map-selection controls to the actual tower cards.
+  // The workspace nav is sticky and wraps on phones, so measure its current height.
+  function jumpToTowerResults(){
+    const target=$('fccTowerResults');
+    if(!target)return;
+    const nav=$('bwWorkspaceNav');
+    const inline=$('fccDialog')?.classList.contains('bw-inline-tool');
+    const offset=inline&&nav?Math.ceil(nav.getBoundingClientRect().height)+12:12;
+    target.style.scrollMarginTop=offset+'px';
+    target.focus({preventScroll:true});
+    const reduced=typeof window.matchMedia==='function'&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    target.scrollIntoView({behavior:reduced?'instant':'smooth',block:'start',inline:'nearest'});
+  }
+  $('fccGeoViewTowers').addEventListener('click',jumpToTowerResults);
   $('fccGeoFind').addEventListener('click',findAddress);
   $('fccGeoInput').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();findAddress()}});
   $('fccGeoNearby').addEventListener('change',()=>{

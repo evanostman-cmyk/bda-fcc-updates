@@ -148,3 +148,8 @@ GitHub Actions now runs the regression and Python syntax checks before deploymen
 ### v1.14.1 — FCC site finder loading hotfix
 
 The online site finder and the **[v1.14.1 standalone offline HTML](Batwing_RF_Suite_Evan_Andrew_v1.14.1_OFFLINE.html)** now wait for FCC database initialization, check actual loaded records rather than the state selector alone, retry unavailable state loads, reject invalid cached state data, normalize county names, and distinguish unavailable data from a valid zero-match result. The standalone HTML embeds all ten JavaScript modules; existing calculator storage keys and project formats are unchanged. No nationwide FCC database is bundled: import an FCC JSON dataset, or configure the hosted manifest at `https://evanostman-cmyk.github.io/bda-fcc-updates/manifest.json` and use Check for updates while online. Street-address geocoding also requires internet; GPS searches work with locally available FCC records. Older standalone copies do not update themselves.
+
+
+### v1.15 — Jump to tower results
+
+The P25 Site Finder now has a **View towers** button immediately next to **Find towers**. It scrolls to the transmitter results heading, accommodates the sticky navigation height on desktop and mobile, and is disabled while an address or GPS lookup is in progress. All v1.14.1 FCC loading fixes are retained. Download the [standalone v1.15 HTML](Batwing_RF_Suite_Evan_Andrew_v1.15_OFFLINE.html) or the [single-file ZIP](https://github.com/evanostman-cmyk/bda-fcc-updates/archive/refs/heads/offline-v1.15-download.zip).
