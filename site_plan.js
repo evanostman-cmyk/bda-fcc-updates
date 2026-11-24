@@ -79,7 +79,7 @@
  const button=document.createElement('button');button.type='button';button.id='bdaSitePlanTop';button.className='btn bsp-open';button.textContent='🗺 Site Plan';button.title='Branching DAS schematic: splitters, couplers, cable, amplifiers, antennas and EIRP';
  const beside=get('linkBudgetTop')||get('fccOpenTop');if(beside)beside.insertAdjacentElement('afterend',button);else document.querySelector('.top-actions')?.appendChild(button);
  const dlg=document.createElement('dialog');dlg.id='bdaSitePlanDialog';dlg.setAttribute('aria-labelledby','bspTitle');dlg.innerHTML=`
- <div class="bsp-head"><div><h2 id="bspTitle">🗺 DAS Site Plan <span style="font-size:.65em;color:#65838e">v1.11</span></h2><p>Build a live, branching signal-flow schematic. Select any node to add cable, splitters, couplers, amplifiers or antennas.</p></div><div class="bsp-actions"><button type="button" class="bsp-btn" id="bspToLink">⚡ Link Budget</button><button type="button" class="bsp-btn" id="bspToFCC">⌕ P25</button><button type="button" class="bsp-btn" id="bspClose">✕ Close</button></div></div>
+ <div class="bsp-head"><div><h2 id="bspTitle">🗺 DAS Site Plan <span style="font-size:.65em;color:#65838e">v1.13</span></h2><p>Build a live, branching signal-flow schematic. Select any node to add cable, splitters, couplers, amplifiers or antennas.</p></div><div class="bsp-actions"><button type="button" class="bsp-btn" id="bspToLink">⚡ Link Budget</button><button type="button" class="bsp-btn" id="bspToFCC">⌕ P25</button><button type="button" class="bsp-btn" id="bspClose">✕ Close</button></div></div>
  <div class="bsp-form"><div class="bsp-field" style="flex:1 1 165px"><label for="bspSiteName">Site plan name</label><input id="bspSiteName" maxlength="90" placeholder="Site name"></div><div class="bsp-field" style="width:108px"><label for="bspTX">TX conducted</label><input id="bspTX" type="number" step="any"></div><div class="bsp-field" style="width:88px"><label for="bspTXUnit">Unit</label><select id="bspTXUnit"><option>dBm</option><option>dBW</option><option>W</option></select></div><div class="bsp-field" style="width:110px"><label for="bspRefGain">Test ant. dBi</label><input id="bspRefGain" type="number" step="any"></div><div class="bsp-field" style="width:152px"><label for="bspAddType">Add component</label><select id="bspAddType"><option value="splitter">Splitter</option><option value="cable">Cable</option><option value="antenna">Antenna</option><option value="coupler">Coupler</option><option value="amplifier">Amplifier</option><option value="loss">Attenuator / loss</option><option value="connector">Connector</option></select></div><button type="button" id="bspAdd" class="bsp-btn primary">+ Add after selected</button></div>
  <div class="bsp-main"><section class="bsp-left"><div class="bsp-bar"><strong>Signal-flow diagram · select a node to edit</strong><div class="bsp-actions"><button type="button" id="bspZoomOut" class="bsp-btn" title="Zoom out">−</button><button type="button" id="bspZoomReset" class="bsp-btn" title="Fit to width">Fit</button><button type="button" id="bspZoomIn" class="bsp-btn" title="Zoom in">+</button><span id="bspZoomLabel" style="font-size:.75rem;color:#426575">100%</span></div></div><div class="bsp-canvas" id="bspCanvas"><svg xmlns="http://www.w3.org/2000/svg" id="bspSvg" aria-label="Interactive DAS signal-flow diagram"></svg></div><div class="bsp-antennas" id="bspAntennaList" aria-live="polite"></div></section><aside class="bsp-side" id="bspDetails" aria-live="polite"></aside></div>
  <div class="bsp-footer"><div class="bsp-actions"><button type="button" class="bsp-btn" id="bspExample">Load example</button><button type="button" class="bsp-btn" id="bspFromLB">Copy TX from Link Budget</button><button type="button" class="bsp-btn" id="bspUndo" disabled>↶ Undo delete</button><button type="button" class="bsp-btn warn" id="bspReset">Clear plan</button></div><div class="bsp-actions"><button type="button" class="bsp-btn" id="bspExportSVG">⬇ Diagram SVG</button><button type="button" class="bsp-btn" id="bspExportCSV">⬇ RF CSV</button><button type="button" class="bsp-btn" id="bspExportJSON">⬇ Save JSON</button><button type="button" class="bsp-btn" id="bspImportJSON">⬆ Load JSON</button><input id="bspFile" type="file" hidden accept=".json,application/json"></div><div class="bsp-status" id="bspStatus" role="status">Stored locally in this browser. Start by adding a splitter or cable after TX.</div></div>`;
@@ -109,7 +109,12 @@
    for(const n of possible){if(seen.has(n.id)||!seen.has(n.parent))continue;
     const x=defaultFor(n.type);x.id=n.id.slice(0,75);x.parent=n.parent;x.name=String(n.name||labels[n.type]).slice(0,90);
     for(const f of ['feet','lossPer100Ft','gainDb','lossDb','ports','excessDb','throughLossDb','tapLossDb','gainDbi'])if(n[f]!==undefined)x[f]=finite(n[f],f==='gainDbi'?-60:0,f==='feet'?200000:f==='ports'?8:200,x[f]||0);
-    if(x.type==='splitter')x.ports=Math.max(2,Math.min(8,Math.round(x.ports||2)));
+    // Optional v1.13 equipment metadata remains backwards-compatible with older JSON files.
+     for(const f of ['vendor','model','partNumber','specSource'])if(n[f]!==undefined)x[f]=String(n[f]??'').slice(0,120);
+     if(n.specConfirmed!==undefined)x.specConfirmed=n.specConfirmed===true;
+     if(n.unitCost!==undefined&&n.unitCost!==null)x.unitCost=finite(n.unitCost,0,10000000,0);
+     for(const f of ['maxInputDbm','maxOutputDbm'])if(n[f]!==undefined&&n[f]!==null&&Number.isFinite(Number(n[f])))x[f]=finite(n[f],-180,150,0);
+     if(x.type==='splitter')x.ports=Math.max(2,Math.min(8,Math.round(x.ports||2)));
     if(x.type==='antenna' && (possible.some(k=>k.parent===x.id)))continue;
     safe.nodes.push(x);seen.add(n.id);added++;
    }
@@ -135,7 +140,9 @@
   safe.nodes=safe.nodes.filter(n=>reachable.has(n.id));safe.selected=safe.nodes.some(n=>n.id===raw.selected)?raw.selected:'tx';return safe;
  }
  try{const saved=localStorage.getItem(storage);if(saved)st=scrub(JSON.parse(saved))}catch(_){st=fresh()}
- const persist=()=>{try{localStorage.setItem(storage,JSON.stringify(st));get('bspStatus').textContent='Site plan saved locally · export JSON to back up your work.'}catch(_){get('bspStatus').textContent='Browser storage not available. Export JSON to save your work.'}};
+ const persist=()=>{try{localStorage.setItem(storage,JSON.stringify(st));get('bspStatus').textContent='Site plan saved locally · export JSON to back up your work.'}catch(_){get('bspStatus').textContent='Browser storage not available. Export JSON to save your work.'}
+   window.dispatchEvent(new Event('batwing:siteplan-change'));
+  };
  function makePorts(n){const count=n.type==='splitter'?n.ports:2;for(let i=0;i<count;i++){const p=defaultFor('port');p.parent=n.id;p.portIndex=i;p.name=n.type==='coupler'?(i===0?'Through':'Tap'):`Port ${i+1}`;st.nodes.push(p)}}
  function ensureLimit(extra){if(st.nodes.length+extra>MAX){window.alert('Limit: 300 diagram elements per site plan.');return false}return true}
  function attach(type,targetId=st.selected){
@@ -275,7 +282,7 @@
   side.querySelectorAll('[data-site-field]').forEach(field=>field.addEventListener('change',e=>{
    const key=e.target.dataset.siteField;
    if(key==='ports'){if(!shrinkPorts(n,Number(e.target.value))){e.target.value=n.ports;return}}
-   else{const min=key==='gainDbi'?-60:0,max=key==='feet'?200000:200;
+   else{if(n.specConfirmed&&key!=='feet')n.specConfirmed=false;const min=key==='gainDbi'?-60:0,max=key==='feet'?200000:200;
     n[key]=finite(e.target.value,min,max,n[key]||0);
    }
    render(false);persist();
@@ -290,6 +297,7 @@
  function render(full=false){
   if(full){get('bspSiteName').value=st.site;get('bspTXUnit').value=st.sourceUnit;get('bspTX').value=String(Number((st.sourceUnit==='dBW'?st.sourceDbm-30:st.sourceUnit==='W'?watts(st.sourceDbm):st.sourceDbm).toPrecision(8)));get('bspRefGain').value=String(st.referenceDbi)}
   updateDiagram();updateSide();updateAntennas();get('bspUndo').disabled=!lastUndo;
+   window.dispatchEvent(new Event('batwing:siteplan-render'));
  }
  function setStatus(v){get('bspStatus').textContent=v}
  function opener(){
@@ -347,5 +355,19 @@
   catch(err){window.alert('Unable to import site plan: '+err.message)}finally{e.target.value=''}
  });
  // Read-only inspection and calculation hooks for regression testing.
- window.BDA_SitePlan=Object.freeze({version:'v1.10',open:opener,read:()=>JSON.parse(JSON.stringify(st)),calculate:()=>{const {results}=evaluate();return Object.fromEntries(results)},add:attach});
+ function applyModel(model){
+    const n=byId(st.selected);
+    if(!n||!model||n.type!==model.type||['tx','port'].includes(n.type))return {ok:false,reason:'Select a matching non-port component.'};
+    if(n.type==='splitter'&&model.ports!==undefined&&!shrinkPorts(n,Math.max(2,Math.min(8,Number(model.ports)||2))))return {ok:false,reason:'Port count change cancelled.'};
+    const perType={cable:['lossPer100Ft'],splitter:['excessDb'],coupler:['throughLossDb','tapLossDb'],amplifier:['gainDb'],loss:['lossDb'],connector:['lossDb'],antenna:['gainDbi']};
+    const valueRanges={gainDbi:[-60,60],gainDb:[0,200],lossPer100Ft:[0,200],excessDb:[0,200],throughLossDb:[0,200],tapLossDb:[0,200],lossDb:[0,200]};
+    for(const f of perType[n.type]||[]){if(model[f]!==undefined&&model[f]!==null&&Number.isFinite(Number(model[f]))){const [min,max]=valueRanges[f];n[f]=finite(model[f],min,max,0)}}
+    for(const f of ['vendor','model','partNumber','specSource'])n[f]=String(model[f]??'').slice(0,120);
+    n.specConfirmed=model.specConfirmed===true;
+    n.unitCost=model.unitCost!==undefined&&model.unitCost!==null&&model.unitCost!==''?finite(model.unitCost,0,10000000,0):null;
+    for(const f of ['maxInputDbm','maxOutputDbm'])n[f]=model[f]!==undefined&&model[f]!==null&&model[f]!==''&&Number.isFinite(Number(model[f]))?finite(model[f],-180,150,0):null;
+    if(n.model||n.partNumber)n.name=[n.vendor,n.model||n.partNumber].filter(Boolean).join(' ').slice(0,90);
+    render(true);persist();return {ok:true,id:n.id};
+   }
+   window.BDA_SitePlan=Object.freeze({version:'v1.13',open:opener,read:()=>JSON.parse(JSON.stringify(st)),calculate:()=>{const {results}=evaluate();return Object.fromEntries(results)},add:attach,applyModel});
 })();
