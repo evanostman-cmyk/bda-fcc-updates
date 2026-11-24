@@ -12,7 +12,8 @@
   {key:'fcc', label:'P25 Site Finder', glyph:'⌕', node:$('fccDialog'), source:'fccOpenTop'},
   {key:'budget', label:'Link Budget', glyph:'⚡', node:$('linkBudgetDialog'), source:'linkBudgetTop'},
   {key:'uplink', label:'Uplink Gain', glyph:'⇧', node:$('uplinkGainDialog'), source:'uplinkGainTop'},
-  {key:'siteplan', label:'Site Plan', glyph:'🗺', node:$('bdaSitePlanDialog'), source:'bdaSitePlanTop'}
+  {key:'siteplan', label:'Site Plan', glyph:'🗺', node:$('bdaSitePlanDialog'), source:'bdaSitePlanTop'},
+  {key:'coverage', label:'Coverage Survey', glyph:'▦', node:$('bwCoverageDialog'), source:'bwCoverageOpen'}
  ];
  if (!bar || !main || definitions.some(x => !x.node)) {
   console.warn('Batwing workspace: one or more tools are missing; retaining original navigation.');
@@ -46,11 +47,13 @@
  #bwWorkspacePages #bdaSitePlanDialog{height:max(700px,calc(100dvh - 160px))!important;min-height:700px!important;max-height:none!important;overflow:hidden!important}
  #bwWorkspacePages #bdaSitePlanDialog .bsp-main{min-height:0}
  #bwWorkspacePages #bdaSitePlanDialog .bsp-footer{position:relative}
- .top-actions #fccOpenTop,.top-actions #linkBudgetTop,.top-actions #uplinkGainTop,.top-actions #bdaSitePlanTop{display:none!important}
+ #bwWorkspacePages #bwCoverageDialog{height:auto!important;max-height:none!important;overflow:visible!important}
+ .top-actions #fccOpenTop,.top-actions #linkBudgetTop,.top-actions #uplinkGainTop,.top-actions #bdaSitePlanTop,.top-actions #bwCoverageOpen{display:none!important}
  #bwWorkspacePages #fccDialog :is(#fccClose),
  #bwWorkspacePages #linkBudgetDialog :is(#lbClose),
  #bwWorkspacePages #uplinkGainDialog :is(#ugClose),
- #bwWorkspacePages #bdaSitePlanDialog :is(#bspClose){width:auto;white-space:nowrap}
+ #bwWorkspacePages #bdaSitePlanDialog :is(#bspClose),
+ #bwWorkspacePages #bwCoverageDialog :is(#csClose){width:auto;white-space:nowrap}
  @media(max-width:640px){
   #bwWorkspaceNav .bw-tabs{padding:9px 10px;gap:6px}
   #bwWorkspaceNav .bw-title{display:none}
@@ -109,13 +112,13 @@
   }
  }
  // Turn the old X buttons into explicit return navigation; nothing closes on outside clicks.
- for(const id of ['fccClose','lbClose','ugClose','bspClose']){
+ for(const id of ['fccClose','lbClose','ugClose','bspClose','csClose']){
   const btn=$(id);if(!btn)continue;
   btn.textContent='← Channel Planner';btn.title='Return to Channel Planner';btn.setAttribute('aria-label','Return to Channel Planner');
  }
  // Preserve the last page within this browser session; a direct page link can also specify it.
  const start=location.hash.replace('#','').toLowerCase();
- if(['fcc','budget','uplink','siteplan'].includes(start)){
+ if(['fcc','budget','uplink','siteplan','coverage'].includes(start)){
   const target=definitions.find(x=>x.key===start);
   if(target?.source&&$(target.source))$(target.source).click();else activate(start,false);
  } else activate('planner',false);
@@ -123,5 +126,5 @@
   const key=location.hash.slice(1).toLowerCase();
   if(panels[key]&&key!==active){const def=definitions.find(x=>x.key===key);if(def?.source&&$(def.source))$(def.source).click();else activate(key,false);}
  });
- window.BatwingWorkspace=Object.freeze({version:'v1.12',navigate:(key)=>{const d=definitions.find(x=>x.key===key);if(d?.source&&$(d.source))$(d.source).click();else activate(key)},active:()=>active});
+ window.BatwingWorkspace=Object.freeze({version:'v1.14',navigate:(key)=>{const d=definitions.find(x=>x.key===key);if(d?.source&&$(d.source))$(d.source).click();else activate(key)},active:()=>active});
 })();
