@@ -13,6 +13,7 @@ on:
       - 'site_plan.js'
       - 'uplink_gain.js'
       - 'kmz_import.js'
+      - 'coverage_survey.js'
       - 'workspace_pages.js'
       - 'smart_site_plan.js'
       - 'rf_path.js'
@@ -46,6 +47,7 @@ jobs:
           cp site_plan.js site/site_plan.js
           cp uplink_gain.js site/uplink_gain.js
           cp kmz_import.js site/kmz_import.js
+          cp coverage_survey.js site/coverage_survey.js
           cp workspace_pages.js site/workspace_pages.js
           cp smart_site_plan.js site/smart_site_plan.js
           cp rf_path.js site/rf_path.js
