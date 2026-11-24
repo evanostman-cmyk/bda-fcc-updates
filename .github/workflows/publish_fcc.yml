@@ -20,6 +20,7 @@ on:
       - 'component_library.js'
       - 'component_ui.js'
       - 'active_equipment.js'
+      - 'site_component_picker.js'
       - 'scripts/**'
       - '.github/workflows/publish_fcc.yml'
 permissions:
@@ -67,6 +68,8 @@ jobs:
           node --check component_ui.js
           cp active_equipment.js site/active_equipment.js
           node --check active_equipment.js
+          cp site_component_picker.js site/site_component_picker.js
+          node --check site_component_picker.js
           python scripts/build_hosted.py --output site --download
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
