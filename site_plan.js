@@ -80,14 +80,14 @@
  const beside=get('linkBudgetTop')||get('fccOpenTop');if(beside)beside.insertAdjacentElement('afterend',button);else document.querySelector('.top-actions')?.appendChild(button);
  const dlg=document.createElement('dialog');dlg.id='bdaSitePlanDialog';dlg.setAttribute('aria-labelledby','bspTitle');dlg.innerHTML=`
  <div class="bsp-head"><div><h2 id="bspTitle">🗺 DAS Site Plan <span style="font-size:.65em;color:#65838e">v1.13</span></h2><p>Build a live, branching signal-flow schematic. Select any node to add cable, splitters, couplers, amplifiers or antennas.</p></div><div class="bsp-actions"><button type="button" class="bsp-btn" id="bspToLink">⚡ Link Budget</button><button type="button" class="bsp-btn" id="bspToFCC">⌕ P25</button><button type="button" class="bsp-btn" id="bspClose">✕ Close</button></div></div>
- <div class="bsp-form"><div class="bsp-field" style="flex:1 1 165px"><label for="bspSiteName">Site plan name</label><input id="bspSiteName" maxlength="90" placeholder="Site name"></div><div class="bsp-field" style="width:108px"><label for="bspTX">TX conducted</label><input id="bspTX" type="number" step="any"></div><div class="bsp-field" style="width:88px"><label for="bspTXUnit">Unit</label><select id="bspTXUnit"><option>dBm</option><option>dBW</option><option>W</option></select></div><div class="bsp-field" style="width:110px"><label for="bspRefGain">Test ant. dBi</label><input id="bspRefGain" type="number" step="any"></div><div class="bsp-field" style="width:152px"><label for="bspAddType">Add component</label><select id="bspAddType"><option value="splitter">Splitter</option><option value="cable">Cable</option><option value="antenna">Antenna</option><option value="coupler">Coupler</option><option value="amplifier">Amplifier</option><option value="loss">Attenuator / loss</option><option value="connector">Connector</option></select></div><button type="button" id="bspAdd" class="bsp-btn primary">+ Add after selected</button></div>
+ <div class="bsp-form"><div class="bsp-field" style="flex:1 1 165px"><label for="bspSiteName">Site plan name</label><input id="bspSiteName" maxlength="90" placeholder="Site name"></div><div class="bsp-field" style="width:108px"><label for="bspTX">TX conducted</label><input id="bspTX" type="number" step="any"></div><div class="bsp-field" style="width:88px"><label for="bspTXUnit">Unit</label><select id="bspTXUnit"><option>dBm</option><option>dBW</option><option>W</option></select></div><div class="bsp-field" style="width:110px"><label for="bspFreq">RF frequency MHz</label><input id="bspFreq" type="number" min="30" max="12000" step="any" placeholder="Optional"></div><div class="bsp-field" style="width:110px"><label for="bspRefGain">Test ant. dBi</label><input id="bspRefGain" type="number" step="any"></div><div class="bsp-field" style="width:152px"><label for="bspAddType">Add component</label><select id="bspAddType"><option value="splitter">Splitter</option><option value="cable">Cable</option><option value="antenna">Antenna</option><option value="coupler">Coupler</option><option value="amplifier">Amplifier</option><option value="loss">Attenuator / loss</option><option value="connector">Connector</option></select></div><button type="button" id="bspAdd" class="bsp-btn primary">+ Add after selected</button></div>
  <div class="bsp-main"><section class="bsp-left"><div class="bsp-bar"><strong>Signal-flow diagram · select a node to edit</strong><div class="bsp-actions"><button type="button" id="bspZoomOut" class="bsp-btn" title="Zoom out">−</button><button type="button" id="bspZoomReset" class="bsp-btn" title="Fit to width">Fit</button><button type="button" id="bspZoomIn" class="bsp-btn" title="Zoom in">+</button><span id="bspZoomLabel" style="font-size:.75rem;color:#426575">100%</span></div></div><div class="bsp-canvas" id="bspCanvas"><svg xmlns="http://www.w3.org/2000/svg" id="bspSvg" aria-label="Interactive DAS signal-flow diagram"></svg></div><div class="bsp-antennas" id="bspAntennaList" aria-live="polite"></div></section><aside class="bsp-side" id="bspDetails" aria-live="polite"></aside></div>
  <div class="bsp-footer"><div class="bsp-actions"><button type="button" class="bsp-btn" id="bspExample">Load example</button><button type="button" class="bsp-btn" id="bspFromLB">Copy TX from Link Budget</button><button type="button" class="bsp-btn" id="bspUndo" disabled>↶ Undo delete</button><button type="button" class="bsp-btn warn" id="bspReset">Clear plan</button></div><div class="bsp-actions"><button type="button" class="bsp-btn" id="bspExportSVG">⬇ Diagram SVG</button><button type="button" class="bsp-btn" id="bspExportCSV">⬇ RF CSV</button><button type="button" class="bsp-btn" id="bspExportJSON">⬇ Save JSON</button><button type="button" class="bsp-btn" id="bspImportJSON">⬆ Load JSON</button><input id="bspFile" type="file" hidden accept=".json,application/json"></div><div class="bsp-status" id="bspStatus" role="status">Stored locally in this browser. Start by adding a splitter or cable after TX.</div></div>`;
  document.body.appendChild(dlg);
  let serial=0,scale=1,lastUndo=null;
  const id=()=>`n${Date.now().toString(36)}_${++serial}`;
  const root=()=>({id:'tx',parent:null,type:'tx',name:'BDA / TX output'});
- const fresh=()=>({format:'BDA-Site-Plan',version:'1.9',site:'New DAS site',sourceDbm:30,sourceUnit:'dBm',referenceDbi:0,selected:'tx',nodes:[root()]});
+ const fresh=()=>({format:'BDA-Site-Plan',version:'1.9',site:'New DAS site',sourceDbm:30,sourceUnit:'dBm',referenceDbi:0,frequencyMHz:null,selected:'tx',nodes:[root()]});
  let st=fresh();
  const defaultFor=type=>({id:id(),parent:null,type,name:labels[type]||type,
   ...(type==='cable'?{feet:100,lossPer100Ft:0}:{}),
@@ -100,7 +100,7 @@
  const children=id=>st.nodes.filter(n=>n.parent===id);
  function scrub(raw){
   if(!raw||raw.format!=='BDA-Site-Plan'||!Array.isArray(raw.nodes))throw Error('Not a supported DAS Site Plan JSON');
-  const safe=fresh();safe.site=String(raw.site||safe.site).slice(0,90);safe.sourceDbm=finite(raw.sourceDbm,-180,150,30);safe.sourceUnit=['dBm','dBW','W'].includes(raw.sourceUnit)?raw.sourceUnit:'dBm';safe.referenceDbi=finite(raw.referenceDbi,-60,60,0);safe.nodes=[root()];
+  const safe=fresh();safe.site=String(raw.site||safe.site).slice(0,90);safe.sourceDbm=finite(raw.sourceDbm,-180,150,30);safe.sourceUnit=['dBm','dBW','W'].includes(raw.sourceUnit)?raw.sourceUnit:'dBm';safe.referenceDbi=finite(raw.referenceDbi,-60,60,0);safe.frequencyMHz=raw.frequencyMHz!==null&&raw.frequencyMHz!==undefined&&raw.frequencyMHz!==''&&Number.isFinite(Number(raw.frequencyMHz))?finite(raw.frequencyMHz,30,12000,851):null;safe.nodes=[root()];
   const possible=raw.nodes.slice(0,MAX).filter(n=>n&&typeof n.id==='string'&&n.id!=='tx'&&TYPES.includes(n.type));
   const staged=new Map(possible.map(n=>[n.id,n]));const seen=new Set(['tx']);
   // Iterative traversal prevents orphaned nodes, cycles, and deep-recursion hangs.
@@ -113,6 +113,7 @@
      for(const f of ['vendor','model','partNumber','specSource'])if(n[f]!==undefined)x[f]=String(n[f]??'').slice(0,120);
      if(n.specConfirmed!==undefined)x.specConfirmed=n.specConfirmed===true;
      if(n.unitCost!==undefined&&n.unitCost!==null)x.unitCost=finite(n.unitCost,0,10000000,0);
+     if(n.specFrequencyMHz!==undefined&&n.specFrequencyMHz!==null&&Number.isFinite(Number(n.specFrequencyMHz)))x.specFrequencyMHz=finite(n.specFrequencyMHz,30,12000,851);
      for(const f of ['maxInputDbm','maxOutputDbm'])if(n[f]!==undefined&&n[f]!==null&&Number.isFinite(Number(n[f])))x[f]=finite(n[f],-180,150,0);
      if(x.type==='splitter')x.ports=Math.max(2,Math.min(8,Math.round(x.ports||2)));
     if(x.type==='antenna' && (possible.some(k=>k.parent===x.id)))continue;
@@ -295,7 +296,7 @@
   get('bspAntennaList').innerHTML=top+(links?`<div style="margin-top:5px">${links}</div>`:' · Add an antenna to an output port.')+(warnings.length?`<p style="color:#985c1e;margin:3px 0">${esc(warnings.join(' '))}</p>`:'');
  }
  function render(full=false){
-  if(full){get('bspSiteName').value=st.site;get('bspTXUnit').value=st.sourceUnit;get('bspTX').value=String(Number((st.sourceUnit==='dBW'?st.sourceDbm-30:st.sourceUnit==='W'?watts(st.sourceDbm):st.sourceDbm).toPrecision(8)));get('bspRefGain').value=String(st.referenceDbi)}
+  if(full){get('bspSiteName').value=st.site;get('bspFreq').value=st.frequencyMHz??'';get('bspTXUnit').value=st.sourceUnit;get('bspTX').value=String(Number((st.sourceUnit==='dBW'?st.sourceDbm-30:st.sourceUnit==='W'?watts(st.sourceDbm):st.sourceDbm).toPrecision(8)));get('bspRefGain').value=String(st.referenceDbi)}
   updateDiagram();updateSide();updateAntennas();get('bspUndo').disabled=!lastUndo;
    window.dispatchEvent(new Event('batwing:siteplan-render'));
  }
@@ -317,6 +318,7 @@
  get('bspTXUnit').addEventListener('change',e=>{st.sourceUnit=e.target.value;render(true);persist()});
  get('bspTX').addEventListener('change',e=>{const v=Number(e.target.value);if(!Number.isFinite(v)||st.sourceUnit==='W'&&v<=0){window.alert('Enter a valid positive source power in watts, or a finite dBm/dBW value.');render(true);return}const dbm=st.sourceUnit==='dBW'?v+30:st.sourceUnit==='W'?30+10*Math.log10(v):v;st.sourceDbm=finite(dbm,-180,150,30);render(true);persist()});
  get('bspRefGain').addEventListener('change',e=>{st.referenceDbi=finite(e.target.value,-60,60,0);render(true);persist()});
+  get('bspFreq').addEventListener('change',e=>{const v=e.target.value.trim();st.frequencyMHz=v!==''&&Number.isFinite(Number(v))&&Number(v)>=30&&Number(v)<=12000?Number(v):null;render(true);persist()});
  get('bspSiteName').addEventListener('input',e=>{st.site=e.target.value.slice(0,90);persist()});
  get('bspZoomIn').addEventListener('click',()=>{scale=Math.min(2.5,scale*1.23);updateDiagram()});
  get('bspZoomOut').addEventListener('click',()=>{scale=Math.max(.25,scale/1.23);updateDiagram()});
@@ -365,6 +367,7 @@
     for(const f of ['vendor','model','partNumber','specSource'])n[f]=String(model[f]??'').slice(0,120);
     n.specConfirmed=model.specConfirmed===true;
     n.unitCost=model.unitCost!==undefined&&model.unitCost!==null&&model.unitCost!==''?finite(model.unitCost,0,10000000,0):null;
+    n.specFrequencyMHz=model.specFrequencyMHz!==undefined&&model.specFrequencyMHz!==null&&model.specFrequencyMHz!==''&&Number.isFinite(Number(model.specFrequencyMHz))?finite(model.specFrequencyMHz,30,12000,851):null;
     for(const f of ['maxInputDbm','maxOutputDbm'])n[f]=model[f]!==undefined&&model[f]!==null&&model[f]!==''&&Number.isFinite(Number(model[f]))?finite(model[f],-180,150,0):null;
     if(n.model||n.partNumber)n.name=[n.vendor,n.model||n.partNumber].filter(Boolean).join(' ').slice(0,90);
     render(true);persist();return {ok:true,id:n.id};
