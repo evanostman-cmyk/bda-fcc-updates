@@ -13,8 +13,8 @@ Target: GitHub repository evanostman-cmyk/bda-fcc-updates, Batwing v1.14
 
 **Pass 2: calculations, data loss, and edge cases**
 - Tested actual source functions for cascaded link-budget dBm/EIRP, uplink gain/noise/isolation limits, splitter and cable-loss propagation, user-entered hardware ratings, Fresnel/curvature and free-space loss, and per-floor coverage scoring.
-- Executed 37 synchronous source-based regression checks and 1,050 additional deterministic calculation/scoring cases in the auditor environment; no failures in those checks.
-- Added scripts/audit_suite.cjs to the repository, with 39 intended checks (37 synchronous plus stored/deflated KMZ archive tests under Node 22). GitHub Actions now runs that suite before publishing; the two Node KMZ tests require observing the Actions result to confirm they execute successfully in CI.
+- Executed 38 synchronous source-based regression checks and 1,050 additional deterministic calculation/scoring cases in the auditor environment; no failures in those checks.
+- Added scripts/audit_suite.cjs to the repository, with 40 intended checks (38 synchronous plus stored/deflated KMZ archive tests under Node 22). GitHub Actions now runs that suite before publishing; the two Node KMZ tests require observing the Actions result to confirm they execute successfully in CI.
 - Tested the KMZ archive extractor against a synthetic stored ZIP entry previously; actual Android device KMZ/KML files are not yet tested.
 
 ## Defects found and fixed
@@ -24,6 +24,7 @@ Target: GitHub repository evanostman-cmyk/bda-fcc-updates, Batwing v1.14
 3. **Compact nationwide FCC imports incorrectly rejected.** A JSON file under 55 MB but containing more than 200,000 rows was incorrectly routed through the smaller FCC importer. JSON objects containing a records array now switch to the streaming nationwide IndexedDB importer regardless of whether the file exceeds 55 MB.
 4. **No automated regression gate.** Added the source-based audit suite and Python syntax checks to the GitHub Pages publish workflow, before FCC downloading/deployment.
 5. **Outdated deployment jobs queued.** Changed the GitHub Actions Pages concurrency setting to cancel obsolete in-progress jobs when a newer deployment is requested; removed a duplicated file trigger.
+6. **Channel Planner exported a physically non-covering filter.** A selected filter narrower than the assumed occupied channel was only warned about, yet a plan export could still proceed. The planner now blocks the export when any calculated filter is flagged 'Too narrow' or 'Coverage', with a specific explanatory message.
 
 ## Calculation and workflow findings
 
