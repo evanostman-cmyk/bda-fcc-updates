@@ -213,8 +213,8 @@
   };
 
   function normalizedCounty(value){
-    return String(value||'').trim().replace(/\\b(COUNTY|PARISH|MUNICIPIO|CENSUS AREA|BOROUGH|CITY AND BOROUGH)\\b/gi,'')
-      .replace(/\\bSAINT\\b/gi,'ST').replace(/[^A-Za-z0-9]/g,'').toUpperCase();
+    return String(value||'').trim().replace(/\b(CITY AND BOROUGH|COUNTY|PARISH|MUNICIPIO|CENSUS AREA|BOROUGH)\b/gi,'')
+      .replace(/\bSAINT\b/gi,'ST').replace(/[^A-Za-z0-9]/g,'').toUpperCase();
   }
   function selectAddressCounty(county){
     const possibilities=[...$('fccCounty').options].map(x=>x.value).filter(x=>x!=='All');
@@ -223,53 +223,95 @@
     const match=possibilities.find(x=>normalizedCounty(x)===wanted);
     return match||'';
   }
+  // Starter directory rows are not evidence that a state database was loaded.
+  function stateSnapshot(state){
+    const match=r=>state==='All'||r.state===state;
+    const stateRows=fccNationStateRows.filter(match);
+    const imported=fccImported.filter(match);
+    const all=fccAll().filter(match);
+    return {stateRows:stateRows.length,imported:imported.length,
+      counties:new Set(all.map(r=>r.county).filter(Boolean)).size,
+      mapped:all.filter(r=>fccCoordinates(r)).length};
+  }
   function refreshDistanceView(note=''){
     fccRenderSiteCards();fccRenderTowerSelection();
     if(reference){
       const shown=latestGroups.length;
-      const mismatch=reference.state&&reference.state!==fccFilter.state;
+      const selected=fccFilter.state;
+      const requested=reference.state||selected;
+      const mismatch=Boolean(reference.state&&reference.state!==selected);
+      const data=stateSnapshot(requested);
       const scope=$('fccGeoNearby').checked?'all counties in the selected state':'the selected FCC county';
-      const countyLabel=reference.county?` · Address county: ${reference.county}`:'';
-      const msg=`${reference.label} (${reference.lat.toFixed(6)}, ${reference.lon.toFixed(6)})${countyLabel} · ${shown.toLocaleString()} towers ${radiusLabel()} from ${scope}. Sorted nearest first.${mismatch?' The address is in '+reference.state+' but the FCC state is '+fccFilter.state+'; select or cache '+reference.state+'.':''}`;
-      setStatus(msg+(note?' '+note:''),false);
+      const countyLabel=reference.county?' · Address county: '+reference.county:'';
+      const prefix=reference.label+' ('+reference.lat.toFixed(6)+', '+reference.lon.toFixed(6)+')'+countyLabel;
+      const diag=' FCC '+requested+': '+data.stateRows.toLocaleString()+' state records, '+data.imported.toLocaleString()+' local import records, '+data.counties+' counties, '+data.mapped.toLocaleString()+' records with GPS.';
+      if(mismatch||!data.mapped||(!data.stateRows&&!data.imported)){
+        const issue=mismatch?'The address is in '+requested+' but the selected FCC state is '+selected+'.':
+          !data.mapped?'No usable FCC GPS records are loaded for '+requested+'.':
+          'Only starter records are available for '+requested+'.';
+        setStatus(prefix+' · '+issue+diag+' Tower search is incomplete; use Check for updates or import FCC data, then retry. '+note,true);
+        return;
+      }
+      const hostedMissing=Boolean(fccHostedManifest?.states?.[requested]&&!data.stateRows);
+      const limited=hostedMissing?' Hosted state data could not be loaded; results use local imports only.':'';
+      const filters=shown===0?' No towers match the current band, site mode, base-station and radius filters; try broader filters.':'';
+      setStatus(prefix+' · '+shown.toLocaleString()+' towers '+radiusLabel()+' from '+scope+'. Sorted nearest first.'+diag+limited+filters+(note?' '+note:''),hostedMissing);
     }
   }
   async function useReference(ref){
     reference=ref;
     const targetState=/^[A-Z]{2}$/.test(ref.state||'')?ref.state:'';
     let note='';
-    // A new address is a NEW geographic search. Don't retain old county,
-    // licensee, site, or text filters that hide towers near this address.
-    fccFilter.county='All';
-    fccFilter.licensee='All';
-    fccFilter.site='All';
-    fccFilter.text='';
+    // Wait for initial IndexedDB restoration and manifest loading before deciding
+    // whether the default state is actually ready. This matters on a fresh browser.
+    setStatus('Preparing FCC state data for the site search…');
+    if(typeof fccStartupReady!=='undefined')await fccStartupReady;
+    // A new geographic search must not inherit old county/licensee/site/text filters.
+    fccFilter.county='All';fccFilter.licensee='All';fccFilter.site='All';fccFilter.text='';
     $('fccText').value='';
-    if(targetState){
-      const stateAvailable=[...$('fccState').options].some(x=>x.value===targetState)
-        ||Boolean(fccHostedManifest?.states?.[targetState])
-        ||Boolean(fccNationMeta?.stateCounts?.[targetState]);
-      if(stateAvailable){
-        const changed=targetState!==fccFilter.state;
-        fccFilter.state=targetState;
-        if(changed)await fccNationLoadState(targetState);
-      }else{
-        note=`FCC state ${targetState} is not yet listed in your loaded database; connect to update or import that state's FCC records.`;
+    const requested=targetState||fccFilter.state;
+    if(requested!=='All'){
+      let data=stateSnapshot(requested);
+      // A failed initial manifest download should not leave the search stuck on starter rows.
+      if(!fccHostedManifest?.states?.[requested]&&!data.stateRows&&!data.imported&&$('fccHostedURL')?.value.trim()){
+        setStatus('Connecting to the FCC database for '+requested+'…');
+        await fccHostedCheckNow(false);
+        data=stateSnapshot(requested);
       }
-    }else{
-      note='For offline GPS searches, select the matching FCC state; the county is now set to All.';
+      const available=[...$('fccState').options].some(x=>x.value===requested)
+        ||Boolean(fccHostedManifest?.states?.[requested])
+        ||Boolean(fccNationMeta?.stateCounts?.[requested])
+        ||Boolean(data.stateRows||data.imported);
+      if(available){
+        const changed=requested!==fccFilter.state;
+        fccFilter.state=requested;
+        const canLoad=Boolean(fccHostedManifest?.states?.[requested]||fccNationMeta?.stateCounts?.[requested]);
+        // The selected dropdown alone is NOT proof of loaded data.
+        if(canLoad&&(changed||!data.stateRows||!data.mapped)){
+          setStatus('Loading '+requested+' FCC records before searching…');
+          await fccNationLoadState(requested);
+          data=stateSnapshot(requested);
+          // One automatic retry on a failed/empty state load; the core loader
+          // validates current cache entries and preserves usable older data.
+          if(!data.stateRows||!data.mapped){
+            setStatus('Retrying '+requested+' FCC state data…');
+            await fccNationLoadState(requested);
+          }
+        }
+      }else note='FCC state '+requested+' is not available in the loaded database.';
     }
-    // Counties are populated only after loading the corresponding state's data.
+    // A loader can render intermediate data. Reapply the new search scope.
+    fccFilter.county='All';fccFilter.licensee='All';fccFilter.site='All';fccFilter.text='';
     fccRefreshFilters();
-    if(targetState && fccFilter.state===targetState && ref.county){
+    if(targetState&&fccFilter.state===targetState&&ref.county){
       const matchedCounty=selectAddressCounty(ref.county);
       if(matchedCounty){
         fccFilter.county=matchedCounty;
         fccRefreshFilters();
-      }else{
-        note=`The Census identified ${ref.county}, but that county is not in the loaded FCC state records. Showing all counties.`;
+      }else if(stateSnapshot(targetState).mapped){
+        note='The Census identified '+ref.county+', but no matching county label is in the loaded FCC records. Showing all counties.';
       }
-    }
+    }else if(!targetState)note='For GPS searches, select the matching FCC state; the county is now set to All.';
     fccRender();
     refreshDistanceView(note);
   }
@@ -299,9 +341,14 @@
     if(!value){setStatus('Enter a full US address (street, city, state) or decimal GPS coordinates.',true);return;}
     let gps;
     try{gps=readGps(value)}catch(e){setStatus(e.message,true);return;}
-    if(gps){try{await useReference(gps)}catch(e){setStatus(`GPS was accepted but FCC state loading failed: ${e.message}. Select a state or use your cached FCC data.`,true)}return;}
+    if(gps){
+      isLocating=true;$('fccGeoFind').disabled=true;$('fccGeoClear').disabled=true;
+      try{await useReference(gps)}catch(e){setStatus(`GPS was accepted but FCC state loading failed: ${e.message}. Select a state or use your cached FCC data.`,true)}
+      finally{isLocating=false;$('fccGeoFind').disabled=false;$('fccGeoClear').disabled=false}
+      return;
+    }
     if(!/[a-z]/i.test(value)){setStatus('For GPS use decimal latitude, longitude (e.g. 27.9506, -82.4572); otherwise enter a complete US street address.',true);return;}
-    isLocating=true;$('fccGeoFind').disabled=true;
+    isLocating=true;$('fccGeoFind').disabled=true;$('fccGeoClear').disabled=true;
     setStatus('Finding the address through the US Census Geocoder…');
     try{
       const json=await censusGeocode(value);
@@ -318,7 +365,7 @@
       await useReference({lat,lon,label,state:/^[A-Z]{2}$/.test(st)?st:'',county});
     }catch(e){
       setStatus(`Address lookup unavailable: ${e.message}. Check your connection or enter GPS coordinates directly; saved FCC tower data still works offline.`,true);
-    }finally{isLocating=false;$('fccGeoFind').disabled=false;}
+    }finally{isLocating=false;$('fccGeoFind').disabled=false;$('fccGeoClear').disabled=false;}
   }
   $('fccGeoFind').addEventListener('click',findAddress);
   $('fccGeoInput').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();findAddress()}});

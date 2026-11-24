@@ -934,7 +934,18 @@ async function fccHostedDownloadState(state,info,token){
  fccHostedSetStatus(`FCC ${state} updated: ${normalized.length.toLocaleString()} records ${saved?'cached offline':'available this session (offline storage unavailable)'}. Published ${fccHostedManifest.generatedAt.slice(0,10)||'date unknown'}.`);
  return normalized;
 }
-async function fccNationLoadState(state){
+// Coalesce concurrent requests for the same state while preserving the existing stale-load token.
+let fccStateLoadPending=null;
+function fccNationLoadState(state){
+ if(fccStateLoadPending?.state===state&&fccStateLoadPending.token===fccNationLoadToken)return fccStateLoadPending.promise;
+ const promise=fccNationLoadStateImpl(state);
+ const pending={state,token:fccNationLoadToken,promise};
+ fccStateLoadPending=pending;
+ const cleanup=()=>{if(fccStateLoadPending===pending)fccStateLoadPending=null};
+ promise.then(cleanup,cleanup);
+ return promise;
+}
+async function fccNationLoadStateImpl(state){
  const token=++fccNationLoadToken;
  if(state==='All'){fccNationStateRows=[];return}
  const info=fccHostedManifest?.states?.[state];
@@ -942,6 +953,10 @@ async function fccNationLoadState(state){
  let cached=null;
  try{cached=await fccHostedDBGet('states',state)}catch(err){fccHostedSetStatus(`Offline cache warning: ${err.message}`)}
  if(token!==fccNationLoadToken)return;
+ // Reject empty, wrong-state and truncated current-version cache entries.
+ if(cached&&(!Array.isArray(cached.rows)||!cached.rows.length||
+   cached.rows.some(r=>!r||r.state!==state)||
+   (cached.sha256===info.sha256&&cached.rows.length!==info.records)))cached=null;
  if(cached&&Array.isArray(cached.rows)){
   fccNationStateRows=cached.rows;fccPersistMode='indexeddb';fccRefreshFilters();fccRender();
   if(cached.sha256===info.sha256){fccHostedSetStatus(`${state} is current (${cached.rows.length.toLocaleString()} records); cached for offline use.`);return}
@@ -955,7 +970,16 @@ async function fccNationLoadState(state){
   fccHostedSetStatus(`Could not update ${state}: ${err.message}. ${cached?'Using earlier cached state.':fccNationMeta?'Using the existing imported state if available.':'Try again when online.'}`);
  }
 }
-async function fccHostedCheckNow(saveChoice=false){
+let fccHostedCheckPending=null;
+function fccHostedCheckNow(saveChoice=false){
+ if(fccHostedCheckPending)return fccHostedCheckPending;
+ const promise=fccHostedCheckNowImpl(saveChoice);
+ fccHostedCheckPending=promise;
+ const cleanup=()=>{if(fccHostedCheckPending===promise)fccHostedCheckPending=null};
+ promise.then(cleanup,cleanup);
+ return promise;
+}
+async function fccHostedCheckNowImpl(saveChoice=false){
  if(fccHostedIsChecking)return;
  try{
   const raw=byId('fccHostedURL').value.trim();
@@ -1099,6 +1123,7 @@ function fccExportResults(){const raw=fccFiltered();if(!raw.length){announce('No
  if(unique){const groups=fccFrequencyGroups(raw);lines=[cols.join(','),...groups.map(g=>{const r=g.record,values={mhz:r.mhz.toFixed(6),callsigns:[...g.callsigns].join(' | '),licensees:[...g.licensees].join(' | '),siteCount:g.sites.size,fccRecordCount:g.entries,sites:[...g.sites.values()].join(' | '),service:r.service,station:[...g.stations].join(' | '),p25:r.p25||r.emission,state:r.state,county:r.county};return cols.map(c=>escapeCsv(values[c])).join(',')})]}
  else lines=[detailCols.join(','),...raw.map(r=>detailCols.map(c=>escapeCsv(r[c])).join(','))];
  download(unique?'BDA_FCC_Unique_Frequencies.csv':'BDA_FCC_All_License_Records.csv','text/csv;charset=utf-8',lines.join('\r\n'));announce(unique?'Unique frequency list exported':'Full FCC search records exported')}
+let fccStartupReady=Promise.resolve();
 function fccInit(){
  const open=()=>fccOpen();byId('fccOpenTop').addEventListener('click',open);byId('openFCCFromSite').addEventListener('click',open);byId('fccClose').addEventListener('click',fccClose);
  byId('fccState').addEventListener('change',async()=>{fccFilter.state=byId('fccState').value;fccFilter.county='All';fccFilter.licensee='All';fccFilter.site='All';await fccNationLoadState(fccFilter.state);fccRefreshFilters();fccRender()});
@@ -1137,13 +1162,13 @@ byId('fccSelectVisible').addEventListener('click',()=>{for(const g of fccVisible
  byId('fccImportFile').addEventListener('change',async e=>{const f=e.target.files&&e.target.files[0];if(f)await fccImportFile(f);e.target.value=''});
  byId('fccExportDb').addEventListener('click',fccExportDb);
  byId('fccResetDb').addEventListener('click',async()=>{if(!confirm('Remove all imported FCC rows, including the nationwide database, from this browser? Keep your original nationwide JSON for backup.'))return;fccImported=[];fccSelected.clear();fccSelectedRows.clear();fccTowerSelection.clear();fccRenderTowerSelection();try{await fccToStore([]);await fccNationClear();fccPersistMode='indexeddb'}catch(e){fccPersistMode='temporary';byId('fccImportStatus').textContent=`Delete failed: ${e.message}`;return}fccRefreshFilters();fccRender();byId('fccImportStatus').textContent='Manual imports removed. Hosted FCC updates, if connected, are still available.'});
- fccRefreshFilters();fccRender();fccRenderTowerSelection();Promise.allSettled([fccFromStore(),fccNationRestore()]).then(async results=>{const small=results[0];if(small.status==='fulfilled'){fccImported=small.value.slice(0,FCC_IMPORT_LIMIT).map(fccNormalize).filter(Boolean);fccPersistMode='indexeddb'}else if(!fccNationMeta){fccPersistMode='temporary';byId('fccImportStatus').textContent='Local database storage unavailable. Your starter records still work; storage may not persist.'}fccRefreshFilters();fccRender();await fccHostedInit()});
+ fccRefreshFilters();fccRender();fccRenderTowerSelection();fccStartupReady=Promise.allSettled([fccFromStore(),fccNationRestore()]).then(async results=>{const small=results[0];if(small.status==='fulfilled'){fccImported=small.value.slice(0,FCC_IMPORT_LIMIT).map(fccNormalize).filter(Boolean);fccPersistMode='indexeddb'}else if(!fccNationMeta){fccPersistMode='temporary';byId('fccImportStatus').textContent='Local database storage unavailable. Your starter records still work; storage may not persist.'}fccRefreshFilters();fccRender();await fccHostedInit()});
 }
 
 init();
 fccInit();
 </script>
-<script src="tower_distance.js"></script>
+<script src="tower_distance.js?v=1.14.1"></script>
 <script src="elevation_profile.js"></script>
 <dialog id="rfWizardDialog" class="rf-wizard-dialog" aria-label="Full RF Wizard mascot artwork">
   <button type="button" class="rf-wizard-close" id="rfWizardClose" aria-label="Close artwork">×</button>
