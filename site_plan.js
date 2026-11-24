@@ -372,5 +372,16 @@
     if(n.model||n.partNumber)n.name=[n.vendor,n.model||n.partNumber].filter(Boolean).join(' ').slice(0,90);
     render(true);persist();return {ok:true,id:n.id};
    }
-   window.BDA_SitePlan=Object.freeze({version:'v1.13',open:opener,read:()=>JSON.parse(JSON.stringify(st)),calculate:()=>{const {results}=evaluate();return Object.fromEntries(results)},add:attach,applyModel});
+   function addLibraryModel(model){
+    const fields={cable:['lossPer100Ft'],splitter:['ports','excessDb'],coupler:['throughLossDb','tapLossDb'],amplifier:['gainDb'],loss:['lossDb'],connector:['lossDb'],antenna:['gainDbi']};
+    if(!model||!Object.hasOwn(fields,model.type)||model.specFrequencyMHz!==st.frequencyMHz||st.frequencyMHz===null)return {ok:false,reason:'Select an appropriate model and matching site frequency.'};
+    for(const f of fields[model.type]){const v=model[f],lo=f==='gainDbi'?-60:f==='ports'?2:0,hi=f==='gainDbi'?60:f==='ports'?8:200;if(typeof v!=='number'||!Number.isFinite(v)||v<lo||v>hi||(f==='ports'&&!Number.isInteger(v)))return {ok:false,reason:'Invalid manufacturer value: '+f};}
+    const snapshot=JSON.stringify(st),prevUndo=lastUndo,oldId=st.selected;
+    if(model.type==='splitter'&&!ensureLimit(1+model.ports))return {ok:false,reason:'Not enough space for splitter ports.'};
+    try{attach(model.type,oldId);if(st.selected===oldId)return {ok:false,reason:'No new component added; select a usable branch.'};
+     const r=applyModel(model);if(!r.ok){st=JSON.parse(snapshot);lastUndo=prevUndo;render(true);persist();return r;}
+     lastUndo=snapshot;render(true);persist();return r;
+    }catch(e){st=JSON.parse(snapshot);lastUndo=prevUndo;render(true);persist();return {ok:false,reason:e.message};}
+   }
+   window.BDA_SitePlan=Object.freeze({version:'v1.13',open:opener,read:()=>JSON.parse(JSON.stringify(st)),calculate:()=>{const {results}=evaluate();return Object.fromEntries(results)},add:attach,applyModel,addLibraryModel});
 })();
