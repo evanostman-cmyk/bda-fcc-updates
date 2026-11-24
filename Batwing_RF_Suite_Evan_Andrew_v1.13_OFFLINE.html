@@ -1136,7 +1136,7 @@ init();
 fccInit();
 </script>
 <script>
-/* Batwing offline embedded: tower_distance.js */
+/* Batwing v1.13 embedded tower_distance.js */
 /* BDA Channel Planner add-on: site address / GPS to FCC transmitter distance.
    No location service is used without an explicit Find towers click.
    Distances are geodesic straight-line estimates (not RF path or drive distance).
@@ -1483,7 +1483,7 @@ fccInit();
 })();
 </script>
 <script>
-/* Batwing offline embedded: elevation_profile.js */
+/* Batwing v1.13 embedded elevation_profile.js */
 /* BDA Channel Planner v1.4 — interactive FCC tower terrain-elevation profiles.
  * No location data is sent until the user requests a profile.
  * Sources: Open Topo Data (USGS NED ~10 m where covered, 80 samples)
@@ -1828,7 +1828,7 @@ fccInit();
 })();
 </script>
 <script>
-/* Batwing offline embedded: link_budget.js */
+/* Batwing v1.13 embedded link_budget.js */
 /* BDA Channel Planner v1.8 — RF Link Budget / Power Chain
  * Local, offline-first: calculate cascade power and prospective EIRP at every stage.
  * Conducted power is not actual EIRP until an antenna (gain in dBi) is connected.
@@ -2156,7 +2156,7 @@ fccInit();
 
 </script>
 <script>
-/* Batwing offline embedded: site_plan.js */
+/* Batwing v1.13 embedded site_plan.js */
 /* BDA Channel Planner v1.9 — visual branching DAS / RF Site Plan
  * Single TX source, deterministic branch loss accounting, standalone/offline.
  * This is a preliminary schematic, NOT an RF propagation or compliance model.
@@ -2441,7 +2441,7 @@ fccInit();
   get('bspNodeName').addEventListener('input',e=>{n.name=e.target.value.slice(0,90);updateDiagram();updateAntennas();persist()});
   side.querySelectorAll('[data-site-field]').forEach(field=>field.addEventListener('change',e=>{
    const key=e.target.dataset.siteField;
-   if(key==='ports'){if(!shrinkPorts(n,Number(e.target.value))){e.target.value=n.ports;return}}
+   if(key==='ports'){const old=n.ports;if(!shrinkPorts(n,Number(e.target.value))){e.target.value=n.ports;return}if(old!==n.ports)n.specConfirmed=false;}
    else{if(n.specConfirmed&&key!=='feet')n.specConfirmed=false;const min=key==='gainDbi'?-60:0,max=key==='feet'?200000:200;
     n[key]=finite(e.target.value,min,max,n[key]||0);
    }
@@ -2536,7 +2536,7 @@ fccInit();
 
 </script>
 <script>
-/* Batwing offline embedded: uplink_gain.js */
+/* Batwing v1.13 embedded uplink_gain.js */
 (function uplinkGainModule(){
   'use strict';
   if(document.getElementById('uplinkGainDialog'))return;
@@ -2684,7 +2684,7 @@ fccInit();
 })();
 </script>
 <script>
-/* Batwing offline embedded: kmz_import.js */
+/* Batwing v1.13 embedded kmz_import.js */
 (function kmzImportModule(){
  'use strict';
  if(document.getElementById('bwKmzPanel')||!document.getElementById('fccDialog'))return;
@@ -2904,7 +2904,7 @@ fccInit();
 })();
 </script>
 <script>
-/* Batwing offline embedded: workspace_pages.js */
+/* Batwing v1.13 embedded workspace_pages.js */
 /* Batwing RF Suite v1.11 — persistent workspace pages.
    The main tools are full inline pages, not dismissible modal dialogs.
    Small task-specific dialogs (antenna editor, elevation profile, mascot) remain modal. */
@@ -3035,7 +3035,7 @@ fccInit();
 
 </script>
 <script>
-/* Batwing offline embedded: smart_site_plan.js */
+/* Batwing v1.13 embedded smart_site_plan.js */
 (function smartSitePlan(){
  'use strict';
  if(document.getElementById('bwSmartPanel'))return;
@@ -3369,7 +3369,7 @@ fccInit();
 })();
 </script>
 <script>
-/* Batwing offline embedded: rf_path.js */
+/* Batwing v1.13 embedded rf_path.js */
 (function rfPathModule(){
  'use strict';
  if(document.getElementById('bwRfPath')||!document.getElementById('fccElevationDialog'))return;
