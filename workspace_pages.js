@@ -75,7 +75,10 @@
  let active='planner';
  const panels={};const tabs={};
  function activate(key,updateLocation=true){
-  if(!panels[key])key='planner';active=key;document.body.dataset.bwPage=key;
+  if(!panels[key])key='planner';
+  // Prevent page changes from discarding a field technician's current grid entry.
+  if(active==='coverage'&&key!==active&&window.BatwingCoverage?.commitPending&&!window.BatwingCoverage.commitPending())return;
+  active=key;document.body.dataset.bwPage=key;
   for(const [k,p] of Object.entries(panels)){
    p.hidden=k!==key;
    tabs[k].setAttribute('aria-selected',String(k===key));
