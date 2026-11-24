@@ -9,7 +9,7 @@
   const id=()=>Math.random().toString(36).slice(2,11);
   function floor(name='Floor 1',rows=4,cols=5){return {id:id(),name,rows,cols,image:null,inset:{l:0,t:0,r:0,b:0},cells:{}}}
   function fresh(){return {format:'Batwing-Coverage-Survey',version:'1.14',site:'New survey',address:'',ahj:'',criteriaRef:'',technician:'',equipment:'',radio:'',channel:'',date:new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10),thresholds:{dlRssi:null,dlDaq:null,ulRssi:null,ulDaq:null,generalPercent:null,criticalPercent:null},required:{dlRssi:true,dlDaq:true,ulRssi:false,ulDaq:false},floors:[floor()],current:0,selected:'0,0'}}
-  let st=fresh(), saveTimer=null,db=null,dbFailed=false,loadResolved=false;
+  let st=fresh(), saveTimer=null,db=null,dbFailed=false,loadResolved=false,dirtyCell=false;
   const btn=document.createElement('button');btn.type='button';btn.className='btn';btn.id='bwCoverageOpen';btn.textContent='▦ Coverage Survey';
   (document.getElementById('bdaSitePlanTop')||document.getElementById('fccOpenTop'))?.insertAdjacentElement('afterend',btn);
   const css=document.createElement('style');
@@ -300,7 +300,7 @@
       button.textContent=f.rows*f.cols>160?'·':cellName(row,col);
       button.title=cellName(row,col)+' · '+(rec.zone||'general')+' · '+stateText[s];
       button.setAttribute('aria-label',button.title);
-      button.addEventListener('click',()=>{st.selected=cellKey(row,col);renderGrid();renderEditor();queueSave()});
+      button.addEventListener('click',()=>{if(st.selected!==cellKey(row,col)&&!commitPendingCell())return;st.selected=cellKey(row,col);renderGrid();renderEditor();queueSave()});
       overlay.appendChild(button);
     }
   }
@@ -314,6 +314,7 @@
     const state=statusFor(rec,st);
     $('csCellStatus').textContent=stateText[state];
     $('csCellStamp').textContent=rec.measuredAt?'Last recorded: '+new Date(rec.measuredAt).toLocaleString()+(rec.technician?' · '+rec.technician:''):'No saved measurement for this square.';
+    dirtyCell=false;
   }
   function renderSummary(){
     const summary=summarize(st),{sum}=summary;
@@ -337,31 +338,42 @@
     root.appendChild(table);
   }
   function renderAll(){renderHeader();renderFloorControls();renderGrid();renderEditor();renderSummary();}
+  // Unsaved field readings are automatically recorded before navigating away.
+  // Invalid entries or excluded squares without reasons prevent navigation.
+  function commitPendingCell(){return !dirtyCell||saveCell();}
+  for(const id of ['csZone','csCellNotes','csCellFrequency','csCellChannel',...Object.values(valueIds)]){
+    $(id).addEventListener('input',()=>{dirtyCell=true;$('csCellStatus').textContent='UNSAVED MEASUREMENT — save before leaving';});
+    $(id).addEventListener('change',()=>{dirtyCell=true;$('csCellStatus').textContent='UNSAVED MEASUREMENT — save before leaving';});
+  }
   for(const [input,key] of [['csSite','site'],['csAddress','address'],['csAhj','ahj'],['csCriteriaRef','criteriaRef'],['csTechnician','technician'],['csEquipment','equipment'],['csRadio','radio'],['csChannel','channel'],['csDate','date']]){
     $(input).addEventListener('input',()=>{st[key]=safe($(input).value,key==='address'?220:180);queueSave()});
   }
   for(const key of metrics){
     $(ruleIds[key]).addEventListener('change',()=>{
+      if(!commitPendingCell())return;
       const n=finite($(ruleIds[key]).value);st.thresholds[key]=n!==null&&n>=spec[key][0]&&n<=spec[key][1]?n:null;
       renderGrid();renderEditor();renderSummary();queueSave();
     });
-    $(reqIds[key]).addEventListener('change',()=>{st.required[key]=$(reqIds[key]).checked;renderGrid();renderEditor();renderSummary();queueSave()});
+    $(reqIds[key]).addEventListener('change',()=>{if(!commitPendingCell())return;st.required[key]=$(reqIds[key]).checked;renderGrid();renderEditor();renderSummary();queueSave()});
   }
   for(const [id,key] of [['csGeneralTarget','generalPercent'],['csCriticalTarget','criticalPercent']]){
     $(id).addEventListener('change',()=>{const n=finite($(id).value);st.thresholds[key]=n!==null&&n>=0&&n<=100?n:null;renderSummary();queueSave()});
   }
-  $('csFloor').addEventListener('change',()=>{st.current=Number($('csFloor').value)||0;st.selected='0,0';renderFloorControls();renderGrid();renderEditor();queueSave()});
-  $('csFloorName').addEventListener('change',()=>{current().name=safe($('csFloorName').value,100)||'Unnamed floor';renderFloorControls();renderGrid();renderEditor();renderSummary();queueSave()});
+  $('csFloor').addEventListener('change',()=>{if(!commitPendingCell()){$('csFloor').value=st.current;return;}st.current=Number($('csFloor').value)||0;st.selected='0,0';renderFloorControls();renderGrid();renderEditor();queueSave()});
+  $('csFloorName').addEventListener('change',()=>{if(!commitPendingCell())return;current().name=safe($('csFloorName').value,100)||'Unnamed floor';renderFloorControls();renderGrid();renderEditor();renderSummary();queueSave()});
   $('csAddFloor').addEventListener('click',()=>{
+    if(!commitPendingCell())return;
     if(st.floors.length>=MAX_FLOORS){window.alert('Maximum 16 floors per survey.');return;}
     st.floors.push(floor('Floor '+(st.floors.length+1)));st.current=st.floors.length-1;st.selected='0,0';renderAll();queueSave();
   });
   $('csDeleteFloor').addEventListener('click',()=>{
     if(st.floors.length<=1)return;
+    if(!commitPendingCell())return;
     if(!window.confirm('Delete this floor, floor-plan image and all its readings? Export project JSON first if needed.'))return;
     st.floors.splice(st.current,1);st.current=Math.min(st.current,st.floors.length-1);st.selected='0,0';renderAll();queueSave();
   });
   $('csApplyGrid').addEventListener('click',()=>{
+    if(!commitPendingCell())return;
     const f=current(),rows=Number($('csRows').value),cols=Number($('csCols').value);
     if(!Number.isInteger(rows)||!Number.isInteger(cols)||rows<1||cols<1||rows>30||cols>30||rows*cols>MAX_CELLS){window.alert('Choose whole-number rows and columns from 1 to 30, up to 900 cells per floor.');return;}
     if(rows===f.rows&&cols===f.cols)return;
@@ -427,6 +439,7 @@
     const {r,c}=selectedCell();delete current().cells[cellKey(r,c)];renderGrid();renderEditor();renderSummary();queueSave();
   });
   $('csNext').addEventListener('click',()=>{
+    if(!commitPendingCell())return;
     const f=current(),{r,c}=selectedCell(),start=r*f.cols+c;
     for(let i=1;i<=f.rows*f.cols;i++){const n=(start+i)%(f.rows*f.cols),row=Math.floor(n/f.cols),col=n%f.cols,s=statusFor(savedCell(f,row,col),st);
       if(!['pass','fail','excluded'].includes(s)){st.selected=cellKey(row,col);renderGrid();renderEditor();queueSave();return;}
@@ -434,12 +447,13 @@
     window.alert('Every square has a complete pass/fail result or an exclusion. Review failed readings and final criteria.');
   });
   $('csPrev').addEventListener('click',()=>{
+    if(!commitPendingCell())return;
     const f=current(),{r,c}=selectedCell(),pos=(r*f.cols+c+f.rows*f.cols-1)%(f.rows*f.cols);
     st.selected=cellKey(Math.floor(pos/f.cols),pos%f.cols);renderGrid();renderEditor();queueSave();
   });
-  btn.addEventListener('click',()=>{renderAll();if(!dialog.open)dialog.showModal()});
-  $('csClose').addEventListener('click',()=>dialog.close());
-  dialog.addEventListener('click',e=>{if(e.target===dialog)dialog.close()});
+  btn.addEventListener('click',()=>{if(!commitPendingCell())return;renderAll();if(!dialog.open)dialog.showModal()});
+  $('csClose').addEventListener('click',()=>{if(commitPendingCell())dialog.close()});
+  dialog.addEventListener('click',e=>{if(e.target===dialog&&commitPendingCell())dialog.close()});
   function download(name,mime,data){
     const a=document.createElement('a'),url=URL.createObjectURL(new Blob([data],{type:mime}));
     a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1800);
@@ -456,8 +470,8 @@
     }
     return rows.map(cellCSV).join('\r\n');
   }
-  $('csExportCSV').addEventListener('click',()=>download('Batwing_Coverage_'+filename()+'.csv','text/csv;charset=utf-8',csvData()));
-  $('csExportJSON').addEventListener('click',()=>download('Batwing_Coverage_'+filename()+'.json','application/json',JSON.stringify({...st,exportedAt:new Date().toISOString()},null,2)));
+  $('csExportCSV').addEventListener('click',()=>{if(!commitPendingCell())return;download('Batwing_Coverage_'+filename()+'.csv','text/csv;charset=utf-8',csvData());});
+  $('csExportJSON').addEventListener('click',()=>{if(!commitPendingCell())return;download('Batwing_Coverage_'+filename()+'.json','application/json',JSON.stringify({...st,exportedAt:new Date().toISOString()},null,2));});
   function readProject(raw){
     if(!raw||raw.format!=='Batwing-Coverage-Survey'||!Array.isArray(raw.floors)||!raw.floors.length||raw.floors.length>MAX_FLOORS)throw Error('Not a compatible Batwing Coverage Survey JSON project.');
     const output=fresh();
@@ -484,6 +498,7 @@
   }
   $('csImportJSON').addEventListener('click',()=>$('csProjectFile').click());
   $('csProjectFile').addEventListener('change',async()=>{
+    if(!commitPendingCell()){$('csProjectFile').value='';return;}
     const file=$('csProjectFile').files?.[0];if(!file)return;
     try{
       if(file.size>35*1024*1024)throw Error('Project JSON exceeds 35 MB.');
@@ -536,8 +551,9 @@
     '<p><strong>IMPORTANT:</strong> This report is a configurable field-engineering survey record, not an AHJ approval or proof of code compliance. All included grid cells count toward the denominator; untested cells never pass. Equal-sized rectangles do not prove compliance with actual floor-area sampling. Confirm adopted code, actual measured signal, required methods, frequencies, instrument calibration, critical spaces and test locations with the AHJ.</p>'+
     floors+'<footer>Batwing RF Suite · Locally generated report · Customer data is not transmitted by this tool</footer></body></html>';
   }
-  $('csReportHTML').addEventListener('click',()=>download('Batwing_Coverage_Report_'+filename()+'.html','text/html;charset=utf-8',reportHtml()));
+  $('csReportHTML').addEventListener('click',()=>{if(!commitPendingCell())return;download('Batwing_Coverage_Report_'+filename()+'.html','text/html;charset=utf-8',reportHtml());});
   $('csPrint').addEventListener('click',()=>{
+    if(!commitPendingCell())return;
     const tab=window.open('','_blank');
     if(!tab){window.alert('Your browser blocked the report tab. Download the HTML report and use Print → Save as PDF.');return;}
     tab.document.open();tab.document.write(reportHtml());tab.document.close();tab.focus();
@@ -546,6 +562,7 @@
     setTimeout(launch,900);
   });
   $('csReset').addEventListener('click',()=>{
+    if(!commitPendingCell())return;
     if(!window.confirm('Start a completely new survey? This replaces the local current survey. Export your JSON first if needed.'))return;
     st=fresh();renderAll();queueSave();
   });
