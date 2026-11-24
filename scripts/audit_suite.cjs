@@ -59,6 +59,11 @@
    check(r.noiseOk===false,'Noise rise must fail');check(r.suggested===null,'No suggested gain allowed');
    check(r.notes.some(s=>s.includes('STOP')),'Explicit STOP missing');
  });
+ test('Uplink flags unexpected negative noise-floor changes',()=>{
+   const r=uplinkFn({...ulBase,on:-125});
+   check(r.noiseOk===false,'Large noise floor decrease is also not unchanged');check(r.suggested===null,'Do not recommend gain when tower noise measurements diverge');
+   check(r.notes.some(s=>s.includes('STOP')),'Explicit warning missing for altered noise floor');
+ });
  test('Uplink caps isolation and protects hardware',()=>{
    const r=uplinkFn({...ulBase,isolation:80,input:-20,maxOutput:0});
    approx(r.ceiling,60);approx(r.suggested,60);
