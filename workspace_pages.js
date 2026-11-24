@@ -12,8 +12,8 @@
   {key:'fcc', label:'P25 Site Finder', glyph:'⌕', node:$('fccDialog'), source:'fccOpenTop'},
   {key:'planner', label:'Channel Planner', glyph:'▤', node:main, source:null},
   {key:'budget', label:'Link Budget', glyph:'⚡', node:$('linkBudgetDialog'), source:'linkBudgetTop'},
-  {key:'uplink', label:'Uplink Gain', glyph:'⇧', node:$('uplinkGainDialog'), source:'uplinkGainTop'},
   {key:'siteplan', label:'Site Plan', glyph:'🗺', node:$('bdaSitePlanDialog'), source:'bdaSitePlanTop'},
+  {key:'uplink', label:'Uplink Gain', glyph:'⇧', node:$('uplinkGainDialog'), source:'uplinkGainTop'},
   {key:'coverage', label:'Coverage Survey', glyph:'▦', node:$('bwCoverageDialog'), source:'bwCoverageOpen'},
   {key:'components',label:'RF Components',glyph:'▧',node:clPage,source:null}
  ];
