@@ -5,12 +5,12 @@ if(!core||!api||!doc)return;
 const $=id=>doc.getElementById(id),norm=s=>String(s??'').trim().toLowerCase(),obsolete=c=>['true','1'].includes(norm(c.Obsolete));
 const types={Cable:['cable','loss'],Splitter:['splitter','coupler'],Antenna:['antenna'],Connector:['connector'],Attenuator:['loss'],Filter:['loss'],Misc:['loss'],BDA:['amplifier']};
 const labels={cable:'Bulk coax',loss:'Attenuator / filter / fixed jumper',splitter:'Splitter',coupler:'Directional coupler',antenna:'Antenna',connector:'Connector',amplifier:'BDA amplifier'};
-let state={open:false,q:'',vendor:'',type:'all',direction:'Downlink',mode:'replace',key:'',status:''},records=[],choices=[];
+let state={open:false,q:'',vendor:'',type:'all',direction:'Downlink',mode:'replace',key:'',status:''},records=[],choices=[];let totalRecords=0;
 function el(tag,text,attrs={}){const x=doc.createElement(tag);if(text!==undefined)x.textContent=text;for(const [k,v] of Object.entries(attrs)){if(k==='class')x.className=v;else x.setAttribute(k,String(v))}return x}
 function field(parent,label,id,control){const wrap=el('div',undefined,{class:'bsp-field'});wrap.append(el('label',label,{for:id}),control);parent.append(wrap);return control}
 function select(id,options,value){const x=el('select',undefined,{id});for(const [v,t] of options){const o=el('option',t,{value:v});x.append(o)}if(options.some(([v])=>v===value))x.value=value;return x}
 function button(label,fn,cls='bsp-btn'){const b=el('button',label,{type:'button',class:cls});b.onclick=fn;return b}
-function collect(){const map=new Map();for(const l of root.BatwingComponentLibrary?.read()||[])for(const c of l.components||[]){const key=c.GUID||[c.Manufacturer,c.Type,c.Model].join('|');map.set(key,{key,c,source:l.source})}records=[...map.values()].filter(r=>Object.hasOwn(types,r.c.Type)).sort((a,b)=>(a.c.Manufacturer+' '+a.c.Model).localeCompare(b.c.Manufacturer+' '+b.c.Model))}
+function collect(){const map=new Map();for(const l of root.BatwingComponentLibrary?.read()||[])for(const c of l.components||[]){const key=c.GUID||[c.Manufacturer,c.Type,c.Model].join('|');map.set(key,{key,c,source:l.source})}totalRecords=map.size;records=[...map.values()].filter(r=>Object.hasOwn(types,r.c.Type)).sort((a,b)=>(a.c.Manufacturer+' '+a.c.Model).localeCompare(b.c.Manufacturer+' '+b.c.Model))}
 function available(plan,node){const q=norm(state.q).split(/\s+/).filter(Boolean),target=state.mode==='replace'?node?.type:state.type;return records.filter(({c})=>(target==='all'||types[c.Type].includes(target))&&(!state.vendor||state.vendor===c.Manufacturer)&&q.every(t=>norm(`${c.Manufacturer} ${c.Model} ${c.Type} ${c.Description}`).includes(t)))}
 function validModel(m,f){const fields={cable:['lossPer100Ft'],loss:['lossDb'],connector:['lossDb'],splitter:['ports','excessDb'],coupler:['throughLossDb','tapLossDb'],antenna:['gainDbi'],amplifier:['gainDb']};if(!m||!fields[m.type]||m.specFrequencyMHz!==f)return false;return fields[m.type].every(k=>typeof m[k]==='number'&&Number.isFinite(m[k])&&m[k]>=(k==='gainDbi'?-60:k==='ports'?2:0)&&m[k]<=(k==='gainDbi'?60:k==='ports'?8:200)&&(k!=='ports'||Number.isInteger(m[k])))}
 function render(){
@@ -19,9 +19,15 @@ function render(){
  const panel=el('details',undefined,{id:'bwSiteCatalog'});panel.style.cssText='border:1px solid #bad1db;background:#f4fafc;border-radius:10px;padding:10px;margin:0 0 12px';panel.open=state.open;
  panel.append(el('summary','Manufacturer component library',{style:'font-weight:750;cursor:pointer;color:#195c70'}));panel.ontoggle=()=>{state.open=panel.open};
  const body=el('div');body.style.cssText='margin-top:9px';panel.append(body);side.prepend(panel);
- body.append(el('p',`${records.length.toLocaleString()} imported RF records · ${freq??'set'}${freq?' MHz':''} · shared with RF Components`,{class:'bsp-hint'}));
- const importBtn=button(records.length?'Manage / import libraries':'Import VEX / ZIP / JSON libraries',()=>root.BatwingWorkspace?.navigate('components'));body.append(importBtn);
- if(!records.length){body.append(el('p','Import your manufacturer files once; the same catalog is available here.',{class:'bsp-hint'}));return}
+ const shared=root.BatwingComponentLibrary,info=shared?.status?.();
+ body.append(el('p',!info?.ready?'Loading saved component library…':info.busy?'Import in progress…':totalRecords.toLocaleString()+' imported RF records · '+records.length.toLocaleString()+' schematic candidates · '+(freq?freq+' MHz':'set site frequency'),{class:'bsp-hint'}));
+ const file=el('input',undefined,{type:'file',accept:'.vex,.zip,.xml,.json',multiple:'multiple',style:'display:none'});body.append(file);
+ const importBtn=button('Import VEX / ZIP / XML / JSON',()=>file.click());importBtn.disabled=!info?.ready||info.busy;body.append(importBtn);
+ file.onchange=async()=>{const files=[...file.files];if(!files.length)return;state.open=true;try{const r=await shared.importFiles(files);state.status=r.count.toLocaleString()+' records loaded.'+(r.errors.length?' Import errors: '+r.errors.join(' | '):'');}catch(e){state.status=e.message}collect();render()};
+ if(totalRecords){body.append(button('Export library backup',()=>shared.exportJSON()));}
+ body.append(button('Manage library',()=>root.BatwingWorkspace?.navigate('components')));
+ if(info?.message)body.append(el('p',info.message,{class:'bsp-hint'}));
+ if(!records.length){if(state.status)body.append(el('p',state.status,{class:'bsp-hint',role:'status'}));body.append(el('p',info?.ready&&!info.busy?'No usable records loaded in this browser copy. Import the combined JSON or original files here. A new offline file may have separate storage.':'Wait for library initialization or import to finish.',{class:'bsp-hint'}));return}
  const canReplace=!!labels[node?.type];if(!canReplace)state.mode='add';
  const mode=field(body,'Action','scMode',select('scMode',[...(canReplace?[['replace','Replace selected component']]:[]),['add','Add after selected node']],state.mode));mode.onchange=()=>{state.mode=mode.value;state.key='';state.status='';render()};
  if(state.mode==='replace')body.append(el('p','Selected: '+node.name,{class:'bsp-hint'}));
