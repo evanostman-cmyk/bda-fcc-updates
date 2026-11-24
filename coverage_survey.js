@@ -146,6 +146,7 @@
       </div>
       <div id="csCellStatus">Not tested</div>
       <div class="cs-actions"><button type="button" class="cs-btn primary" id="csSaveCell">Save reading</button>
+       <button type="button" class="cs-btn primary" id="csSaveNext">Save &amp; next</button>
        <button type="button" class="cs-btn" id="csClearCell">Clear reading</button></div>
       <p class="cs-help" id="csCellStamp"></p>
      </aside>
@@ -248,7 +249,7 @@
     data.complete=data.pending===0;
     const generalTarget=project.thresholds.generalPercent,criticalTarget=project.thresholds.criticalPercent;
     data.targetsReady=Number.isFinite(generalTarget)&&(data.critical.total===0||Number.isFinite(criticalTarget));
-    data.meets=data.complete&&rulesValid(project)&&data.targetsReady&&data.general.rate!==null&&data.general.rate>=generalTarget&&(data.critical.total===0||data.critical.rate>=criticalTarget);
+    data.meets=data.complete&&rulesValid(project)&&data.targetsReady&&(data.general.total===0||data.general.rate>=generalTarget)&&(data.critical.total===0||data.critical.rate>=criticalTarget);
     return data;
   }
   function summarize(project){
@@ -415,6 +416,7 @@
     renderGrid();renderEditor();renderSummary();queueSave();return true;
   }
   $('csSaveCell').addEventListener('click',saveCell);
+  $('csSaveNext').addEventListener('click',()=>{if(saveCell())$('csNext').click()});
   $('csClearCell').addEventListener('click',()=>{
     const {r,c}=selectedCell();delete current().cells[cellKey(r,c)];renderGrid();renderEditor();renderSummary();queueSave();
   });
@@ -533,8 +535,9 @@
     const tab=window.open('','_blank');
     if(!tab){window.alert('Your browser blocked the report tab. Download the HTML report and use Print → Save as PDF.');return;}
     tab.document.open();tab.document.write(reportHtml());tab.document.close();tab.focus();
-    tab.addEventListener('load',()=>tab.print(),{once:true});
-    setTimeout(()=>{try{if(!tab.closed&&tab.document.readyState==='complete')tab.print()}catch(e){}},800);
+    let printed=false;const launch=()=>{if(printed||tab.closed)return;printed=true;try{tab.focus();tab.print()}catch(e){}};
+    tab.addEventListener('load',launch,{once:true});
+    setTimeout(launch,900);
   });
   $('csReset').addEventListener('click',()=>{
     if(!window.confirm('Start a completely new survey? This replaces the local current survey. Export your JSON first if needed.'))return;
