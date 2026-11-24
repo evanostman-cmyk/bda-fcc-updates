@@ -66,6 +66,8 @@
   #bwWorkspacePages #linkBudgetDialog .lb-head,#bwWorkspacePages #linkBudgetDialog .lb-footer{padding:12px 9px}
   #bwWorkspacePages #bdaSitePlanDialog{height:800px!important;min-height:800px!important}
  }
+ /* Keep last tool on the right even on a wrapped row. */
+ #bwWorkspaceNav #bwTab-components{order:99;margin-inline-start:auto;flex:0 0 auto;min-width:max-content}
  @media print{#bwWorkspaceNav{display:none!important}#bwWorkspacePages{padding:0!important}.bw-page[hidden]{display:none!important}}
  `;
  document.head.appendChild(css);
