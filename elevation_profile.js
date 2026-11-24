@@ -49,7 +49,7 @@
   const dlg = document.createElement('dialog');
   dlg.id = 'fccElevationDialog';
   dlg.setAttribute('aria-label', 'Terrain elevation between site and FCC tower');
-  dlg.innerHTML = `<div class="bda-elev-head"><div><h3>⛰ Terrain Elevation Profile <span style="font-size:.72em;opacity:.7">v1.5</span></h3>
+  dlg.innerHTML = `<div class="bda-elev-head"><div><h3>⛰ RF Path & Fresnel Profile <span style="font-size:.72em;opacity:.7">v1.13</span></h3>
     <small id="bdaElevSubtitle">Site address → FCC licensed transmitter location</small></div>
     <button type="button" class="bda-elev-close" id="bdaElevClose" aria-label="Close elevation profile">✕</button></div>
     <div class="bda-elev-body">
@@ -69,7 +69,7 @@
         <button type="button" id="bdaElevReload" disabled>↻ Refresh elevations</button>
       </div>
       <p class="bda-elev-note" id="bdaElevSource">Source and sample count will appear when terrain data loads.</p>
-      <p class="bda-elev-note"><strong>Azimuth:</strong> Bearing is clockwise from <strong>true north</strong> (000°T = north, 090°T = east); local magnetic declination is not applied. <strong>Engineering note:</strong> This chart shows sampled <em>ground terrain</em> only. It does not include the transmitter antenna AGL, building receiver antenna height, trees, buildings, Earth-curvature effects, Fresnel-zone clearance or actual RF propagation. FCC coordinates indicate a licensed location, not guaranteed active P25 transmission. Internet is required for new profiles; previously loaded profiles may work offline from this browser's cache.</p>
+      <p class="bda-elev-note"><strong>Azimuth:</strong> Bearing is clockwise from <strong>true north</strong> (000°T = north, 090°T = east); local magnetic declination is not applied. <strong>Engineering note:</strong> This original blue chart shows sampled <em>ground terrain</em> only. The separate RF Path analysis estimates antenna-height, effective Earth curvature and first Fresnel-zone clearance where samples are valid; neither chart models trees, buildings, clutter, multipath, diffraction loss, nor verifies a live transmitter. FCC coordinates indicate a licensed location, not guaranteed active P25 transmission. Internet is required for new profiles; previously loaded profiles may work offline from this browser's cache.</p>
     </div>`;
   document.body.appendChild(dlg);
   const status = (msg, isError = false) => { $('bdaElevStatus').textContent = msg; $('bdaElevStatus').classList.toggle('bda-elev-error', isError); };
@@ -124,7 +124,7 @@
     if (!dest || !valid(Number(dest.lat), Number(dest.lon))) return;
     const btn = document.createElement('button'); btn.type = 'button';
     btn.className = chip ? 'bda-elev-chip' : 'btn sm bda-elev-action';
-    btn.textContent = chip ? '⛰ Profile' : '⛰ Elevation profile';
+    btn.textContent = chip ? '⛰ RF Path' : '⛰ RF Path / Fresnel';
     btn.title = 'Show the terrain elevation between your selected site address and this FCC licensed tower';
     btn.addEventListener('click', e => { e.stopPropagation(); openProfile(dest); });
     parent.appendChild(btn);
@@ -255,6 +255,7 @@
     $('bdaElevMax').textContent=ftLabel(Math.max(...vals));
     $('bdaElevSource').textContent=`Terrain source: ${profile.source} · ${profile.resolution} · ${vals.length}/${profile.points.length} samples with elevations. ${cached?'Previously saved profile loaded from your browser cache.':''} Samples approximate ground elevation; gaps indicate missing data. Credit: U.S. Geological Survey / Open Topo Data as applicable.`;
     drawProfile(profile, profile.distanceMi);
+    window.dispatchEvent(new CustomEvent('batwing:terrain-ready',{detail:{profile:JSON.parse(JSON.stringify(profile)),distanceMi:profile.distanceMi,site:current?.start||null,tower:current?.end||null,siteLabel:current?.siteLabel||'',towerLabel:current?.tower?.callsign||'',cached}}));
     for(const name of ['bdaElevKML','bdaElevCSV','bdaElevReload'])$(name).disabled=false;
     status(cached?'Cached terrain profile loaded (works offline).':'Terrain profile loaded. Use the chart or export the route.');
   }
@@ -271,6 +272,7 @@
     const distanceMi=pathMiles(start,end);
     const key=cacheKey(start,end);
     current={start,end,siteLabel:String(a.label||'Job site'),tower:{...tower},key,profile:null,distanceMi};
+    window.dispatchEvent(new Event('batwing:terrain-loading'));
     $('bdaElevSubtitle').textContent=`${current.siteLabel} → ${tower.callsign||'Tower'} · ${tower.site||tower.city||''} · ${distanceMi.toFixed(2)} mi · Az ${bearingLabel(start,end)}`;
     $('bdaElevAzimuth').textContent=bearingLabel(start,end);
     $('bdaElevMetrics').hidden=true;for(const name of ['bdaElevKML','bdaElevCSV','bdaElevReload'])$(name).disabled=true;
