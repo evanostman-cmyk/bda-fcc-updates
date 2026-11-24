@@ -142,6 +142,8 @@
        <div class="cs-field"><label for="csCellDLDAQ">Downlink DAQ (0–5)</label><input type="number" min="0" max="5" step=".1" id="csCellDLDAQ"></div>
        <div class="cs-field"><label for="csCellUL">Uplink tower RSSI (dBm)</label><input type="number" step=".1" id="csCellUL"></div>
        <div class="cs-field"><label for="csCellULDAQ">Uplink DAQ (0–5)</label><input type="number" min="0" max="5" step=".1" id="csCellULDAQ"></div>
+       <div class="cs-field"><label for="csCellFrequency">Test frequency (MHz)</label><input type="number" min="30" max="12000" step="any" id="csCellFrequency" placeholder="Optional"></div>
+       <div class="cs-field"><label for="csCellChannel">Channel / talkgroup</label><input type="text" id="csCellChannel" maxlength="90" placeholder="Optional"></div>
        <div class="cs-field full"><label for="csCellNotes">Field notes / exclusion reason</label><textarea id="csCellNotes" rows="2" maxlength="800" placeholder="Critical room, stairwell, test result, excluded space…"></textarea></div>
       </div>
       <div id="csCellStatus">Not tested</div>
@@ -214,7 +216,7 @@
   const cellKey=(r,c)=>r+','+c;
   function decodeKey(key){const [r,c]=String(key).split(',').map(Number);return {r,c};}
   function selectedCell(){const f=current();const {r,c}=decodeKey(st.selected);return r>=0&&r<f.rows&&c>=0&&c<f.cols?{r,c}:{r:0,c:0};}
-  function savedCell(f,r,c){return f.cells[cellKey(r,c)]||{zone:'general',dlRssi:null,dlDaq:null,ulRssi:null,ulDaq:null,notes:'',technician:'',measuredAt:''};}
+  function savedCell(f,r,c){return f.cells[cellKey(r,c)]||{zone:'general',dlRssi:null,dlDaq:null,ulRssi:null,ulDaq:null,notes:'',technician:'',measuredAt:'',frequencyMHz:null,channel:''};}
   const metrics=['dlRssi','dlDaq','ulRssi','ulDaq'];
   const valueIds={dlRssi:'csCellDL',dlDaq:'csCellDLDAQ',ulRssi:'csCellUL',ulDaq:'csCellULDAQ'};
   const ruleIds={dlRssi:'csDL',dlDaq:'csDLDAQ',ulRssi:'csUL',ulDaq:'csULDAQ'};
@@ -308,6 +310,7 @@
     $('csZone').value=rec.zone||'general';
     for(const key of metrics)$(valueIds[key]).value=rec[key]??'';
     $('csCellNotes').value=rec.notes||'';
+    $('csCellFrequency').value=rec.frequencyMHz??'';$('csCellChannel').value=rec.channel||'';
     const state=statusFor(rec,st);
     $('csCellStatus').textContent=stateText[state];
     $('csCellStamp').textContent=rec.measuredAt?'Last recorded: '+new Date(rec.measuredAt).toLocaleString()+(rec.technician?' · '+rec.technician:''):'No saved measurement for this square.';
@@ -406,6 +409,9 @@
   function saveCell(){
     const f=current(),{r,c}=selectedCell(),zone=$('csZone').value;
     const rec={zone,notes:safe($('csCellNotes').value,800),technician:safe(st.technician,100),measuredAt:new Date().toISOString()};
+    const freq=finite($('csCellFrequency').value);
+    if(freq!==null&&(freq<30||freq>12000)){window.alert('Test frequency must be 30–12,000 MHz or blank.');return false;}
+    rec.frequencyMHz=freq;rec.channel=safe($('csCellChannel').value,90);
     for(const key of metrics){
       const n=finite($(valueIds[key]).value);
       if(n!==null&&(n<spec[key][0]||n>spec[key][1])){window.alert(key+' must be between '+spec[key][0]+' and '+spec[key][1]+'.');return false;}
@@ -444,9 +450,9 @@
     return '"'+s.replace(/"/g,'""')+'"';
   }).join(',');
   function csvData(){
-    const rows=[['Facility','Floor','Cell','Zone','Status','DL_RSSI_dBm','DL_DAQ','UL_RSSI_dBm','UL_DAQ','Technician','Measured_at_UTC','Notes']];
+    const rows=[['Facility','Floor','Cell','Zone','Status','Frequency_MHz','Channel','DL_RSSI_dBm','DL_DAQ','UL_RSSI_dBm','UL_DAQ','Technician','Measured_at_UTC','Notes']];
     for(const f of st.floors)for(let r=0;r<f.rows;r++)for(let c=0;c<f.cols;c++){
-      const rec=savedCell(f,r,c);rows.push([st.site,f.name,cellName(r,c),rec.zone,statusFor(rec,st),rec.dlRssi,rec.dlDaq,rec.ulRssi,rec.ulDaq,rec.technician,rec.measuredAt,rec.notes]);
+      const rec=savedCell(f,r,c);rows.push([st.site,f.name,cellName(r,c),rec.zone,statusFor(rec,st),rec.frequencyMHz,rec.channel,rec.dlRssi,rec.dlDaq,rec.ulRssi,rec.ulDaq,rec.technician,rec.measuredAt,rec.notes]);
     }
     return rows.map(cellCSV).join('\r\n');
   }
@@ -468,7 +474,7 @@
       for(const [key,v] of Object.entries(f.cells||{})){
         if(!/^\d{1,2},\d{1,2}$/.test(key)||!v||typeof v!=='object')continue;
         const {r,c}=decodeKey(key);if(r>=rows||c>=cols)continue;
-        const rec={zone:['general','critical','excluded'].includes(v.zone)?v.zone:'general',notes:safe(v.notes,800),technician:safe(v.technician,100),measuredAt:typeof v.measuredAt==='string'&&Number.isFinite(Date.parse(v.measuredAt))?v.measuredAt:''};
+        const rec={zone:['general','critical','excluded'].includes(v.zone)?v.zone:'general',notes:safe(v.notes,800),channel:safe(v.channel,90),frequencyMHz:(()=>{const n=finite(v.frequencyMHz);return n!==null&&n>=30&&n<=12000?n:null})(),technician:safe(v.technician,100),measuredAt:typeof v.measuredAt==='string'&&Number.isFinite(Date.parse(v.measuredAt))?v.measuredAt:''};
         for(const k of metrics){const n=finite(v[k]);rec[k]=n!==null&&n>=spec[k][0]&&n<=spec[k][1]?n:null;}
         result.cells[key]=rec;
       }
@@ -509,7 +515,7 @@
       const sum=statsFor(f,st),rows=[];
       for(let r=0;r<f.rows;r++)for(let c=0;c<f.cols;c++){
         const x=savedCell(f,r,c),s=statusFor(x,st);
-        rows.push('<tr><td>'+esc(cellName(r,c))+'</td><td>'+esc(x.zone)+'</td><td>'+esc(s.toUpperCase())+'</td>'+
+        rows.push('<tr><td>'+esc(cellName(r,c))+'</td><td>'+esc(x.zone)+'</td><td>'+esc(s.toUpperCase())+'</td><td>'+esc(x.frequencyMHz??'')+'</td><td>'+esc(x.channel||'')+'</td>'+
          [x.dlRssi,x.dlDaq,x.ulRssi,x.ulDaq].map(v=>'<td>'+esc(v??'')+'</td>').join('')+
          '<td>'+esc(x.technician||'')+'</td><td>'+esc(x.measuredAt||'')+'</td><td>'+esc(x.notes||'')+'</td></tr>');
       }
@@ -517,7 +523,7 @@
        ' · General '+fmt(sum.general.rate)+' ('+sum.general.pass+'/'+sum.general.total+')'+
        ' · Critical '+fmt(sum.critical.rate)+' ('+sum.critical.pass+'/'+sum.critical.total+')'+
        ' · Failed '+sum.fail+' · Untested/partial '+sum.pending+' · Excluded '+sum.excluded+'</p>'+
-       reportMap(f)+'<h3>Detailed readings</h3><table><thead><tr><th>Cell</th><th>Zone</th><th>Status</th><th>DL dBm</th><th>DL DAQ</th><th>UL dBm</th><th>UL DAQ</th><th>Tech</th><th>Recorded UTC</th><th>Notes</th></tr></thead><tbody>'+rows.join('')+'</tbody></table></section>';
+       reportMap(f)+'<h3>Detailed readings</h3><table><thead><tr><th>Cell</th><th>Zone</th><th>Status</th><th>MHz</th><th>Channel</th><th>DL dBm</th><th>DL DAQ</th><th>UL dBm</th><th>UL DAQ</th><th>Tech</th><th>Recorded UTC</th><th>Notes</th></tr></thead><tbody>'+rows.join('')+'</tbody></table></section>';
     }
     return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Batwing Coverage Report — '+esc(st.site)+'</title><style>'+
     'body{font:13px Arial,sans-serif;color:#173748;margin:24px;line-height:1.45}h1{color:#0f4962;margin:0 0 8px}h2{margin:15px 0 8px;color:#18566b}h3{margin:16px 0 7px}p{margin:7px 0}table{width:100%;border-collapse:collapse;margin:9px 0 14px}th,td{border:1px solid #cbdde3;padding:5px;text-align:left;vertical-align:top;overflow-wrap:anywhere}th{background:#edf5f7}.meta{max-width:1000px}.meta th{width:240px}.verdict{font-weight:800;font-size:15px;padding:12px;border:1px solid #d6e4e9;background:#f1f8fa;margin:12px 0}.floor{break-before:page}.floor>div{max-width:1050px}.floor table{font-size:10px}footer{margin-top:20px;font-size:11px;color:#526f7e}@page{size:landscape;margin:12mm}@media print{body{margin:0}.floor{break-before:page}table{break-inside:auto}tr{break-inside:avoid}}</style></head><body>'+
