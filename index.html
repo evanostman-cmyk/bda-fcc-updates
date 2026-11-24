@@ -444,8 +444,10 @@ function calculate(){const {all,duplicates}=getChannels(),model=getModel(),selec
  const normal=groupByFixed(all,state.width,state.occupied),smart=groupBySmart(all,state.occupied,state.timing);
  const normalChecks=verifyFilters(normal,model,selectedMode,state.occupied),smartChecks=verifyFilters(smart,model,selectedMode,state.occupied);
  const current=state.tab==='normal'?normal:smart,checks=state.tab==='normal'?normalChecks:smartChecks;
- const blocked=badBand.length>0||all.length===0;let issues=[];
+ const invalidCoverage=current.some(f=>f.flags.includes('Too narrow')||f.flags.includes('Coverage'));
+ const blocked=badBand.length>0||all.length===0||invalidCoverage;let issues=[];
  if(!all.length)issues.push('No frequencies are selected. Choose a site or add your own.');
+ if(invalidCoverage)issues.push('BLOCKED: one or more proposed filter widths do not fully cover the assumed occupied channels. Increase filter width or verify and adjust the occupied-bandwidth setting.');
  if(duplicates.length)issues.push(`${duplicates.length} duplicate downlink frequency${duplicates.length>1?'ies were':' was'} skipped.`);
  if(badBand.length)issues.push(`${badBand.length} channel${badBand.length>1?'s are':' is'} outside this model’s supported band type. Choose the matching installed hardware.`);
  if(current.length>model.slots)issues.push(`This plan needs ${current.length} filters but the selected model is listed for ${model.slots} total slots.`);
@@ -461,8 +463,8 @@ function calculate(){const {all,duplicates}=getChannels(),model=getModel(),selec
  const hasCritical=badBand.length||current.length>model.slots||checks.bandOver.length||checks.overlapCount||state.width<state.occupied&&state.tab==='normal';
  const hasReview=checks.widthReview||duplicates.length;
  const status=blocked?'bad':hasCritical?'warn':hasReview?'warn':'good';
- const statusTitle=!all.length?'Choose a site or add frequencies':badBand.length?'Equipment band does not match':hasCritical?'Plan needs engineering review':hasReview?'Plan calculated — review warnings':'Plan calculated — verify before programming';
- const statusText=!all.length?'Pick a county/site on the left, or enter your own downlink frequencies.':badBand.length?'The chosen hardware does not match the selected frequency band. No usable programming plan should be taken from these results.':hasCritical?`There ${current.length===1?'is':'are'} ${current.length} proposed filters. Check the issues below before proceeding.`:hasReview?'The filter rows are generated, but some widths or entries need review.':'The selected frequencies fit the displayed planning slot limits. Verify all licensing, equipment and timing requirements.';
+ const statusTitle=!all.length?'Choose a site or add frequencies':badBand.length?'Equipment band does not match':invalidCoverage?'Filter does not cover occupied channel':hasCritical?'Plan needs engineering review':hasReview?'Plan calculated — review warnings':'Plan calculated — verify before programming';
+ const statusText=!all.length?'Pick a county/site on the left, or enter your own downlink frequencies.':badBand.length?'The chosen hardware does not match the selected frequency band. No usable programming plan should be taken from these results.':invalidCoverage?'One or more filters are too narrow to cover the assumed occupied signal. Export and programming output are disabled until corrected.':hasCritical?`There ${current.length===1?'is':'are'} ${current.length} proposed filters. Check the issues below before proceeding.`:hasReview?'The filter rows are generated, but some widths or entries need review.':'The selected frequencies fit the displayed planning slot limits. Verify all licensing, equipment and timing requirements.';
  return {all,duplicates,normal,smart,current,model,mode:selectedMode,checks,badBand,blocked,issues,status,statusTitle,statusText}}
 function td(tr,content,cls){let e=document.createElement('td');if(cls)e.className=cls;e.textContent=content;tr.appendChild(e);return e}
 function renderPlanTable(c){const body=byId('planBody');body.replaceChildren();const table=byId('planTable');table.classList.add('print-all');const filters=c.current;const display=state.showAll?filters:filters.slice(0,12);byId('tableContainer').querySelector('.empty')?.remove();table.hidden=filters.length===0||c.badBand.length>0;
