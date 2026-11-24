@@ -39,6 +39,17 @@
   check(source.nav.includes("key:'uplink'"),'Uplink tab missing');
   check(source.index.includes('Batwing RF Suite v1.14'),'App version mismatch');
  });
+ // Channel Planner: reject a filter narrower than the occupied signal.
+ test('Channel plan blocks filters failing occupied-channel width',()=>{
+  const state={width:12.5,occupied:13.5,tab:'normal',timing:'Low Delay',delayLimit:25};
+  const bands=[{downlink:851.0125,band:'800',uplink:806.0125}];
+  const model={id:'TEST',kind:'dual',slots:32,limits:{'700':16,'800':16}};
+  const calculate=new Function('state','getChannels','getModel','decideMode',extract(source.index,'function groupByFixed(','function td(')+';return calculate;')(
+   state,()=>({all:bands,duplicates:[]}),()=>model,()=>({display:'TEST',limits:{'700':16,'800':16}}));
+  const invalid=calculate();check(invalid.blocked===true,'12.5 kHz filter cannot cover assumed 13.5 kHz signal');
+  check(invalid.current[0].flags.includes('Too narrow'),'Expected occupied width flag');
+  state.width=75;const sufficient=calculate();check(sufficient.blocked===false,'Sufficient bandwidth should not be blocked');
+ });
  // Link Budget: independently confirm cascaded dBm/dBW/W math.
  const budgetFn=new Function(extract(source.budget,'function calculate(raw=st){','function save(){')+';return calculate;')();
  test('Link budget cascade and antenna EIRP',()=>{
