@@ -3599,13 +3599,13 @@ fccInit();
  const bar = document.querySelector('.topbar');
  const clPage=document.createElement('section');clPage.id='bwComponentLibrary';
  const definitions = [
-  {key:'components',label:'RF Components',glyph:'▧',node:clPage,source:null},
   {key:'planner', label:'Channel Planner', glyph:'▤', node:main, source:null},
   {key:'fcc', label:'P25 Site Finder', glyph:'⌕', node:$('fccDialog'), source:'fccOpenTop'},
   {key:'budget', label:'Link Budget', glyph:'⚡', node:$('linkBudgetDialog'), source:'linkBudgetTop'},
   {key:'uplink', label:'Uplink Gain', glyph:'⇧', node:$('uplinkGainDialog'), source:'uplinkGainTop'},
   {key:'siteplan', label:'Site Plan', glyph:'🗺', node:$('bdaSitePlanDialog'), source:'bdaSitePlanTop'},
-  {key:'coverage', label:'Coverage Survey', glyph:'▦', node:$('bwCoverageDialog'), source:'bwCoverageOpen'}
+  {key:'coverage', label:'Coverage Survey', glyph:'▦', node:$('bwCoverageDialog'), source:'bwCoverageOpen'},
+  {key:'components',label:'RF Components',glyph:'▧',node:clPage,source:null}
  ];
  if (!bar || !main || definitions.some(x => !x.node)) {
   console.warn('Batwing workspace: one or more tools are missing; retaining original navigation.');
