@@ -3599,8 +3599,8 @@ fccInit();
  const bar = document.querySelector('.topbar');
  const clPage=document.createElement('section');clPage.id='bwComponentLibrary';
  const definitions = [
-  {key:'planner', label:'Channel Planner', glyph:'▤', node:main, source:null},
   {key:'fcc', label:'P25 Site Finder', glyph:'⌕', node:$('fccDialog'), source:'fccOpenTop'},
+  {key:'planner', label:'Channel Planner', glyph:'▤', node:main, source:null},
   {key:'budget', label:'Link Budget', glyph:'⚡', node:$('linkBudgetDialog'), source:'linkBudgetTop'},
   {key:'uplink', label:'Uplink Gain', glyph:'⇧', node:$('uplinkGainDialog'), source:'uplinkGainTop'},
   {key:'siteplan', label:'Site Plan', glyph:'🗺', node:$('bdaSitePlanDialog'), source:'bdaSitePlanTop'},
@@ -3711,12 +3711,13 @@ fccInit();
   const btn=$(id);if(!btn)continue;
   btn.textContent='← Channel Planner';btn.title='Return to Channel Planner';btn.setAttribute('aria-label','Return to Channel Planner');
  }
- // Preserve the last page within this browser session; a direct page link can also specify it.
- const start=location.hash.replace('#','').toLowerCase();
- if(['fcc','budget','uplink','siteplan','coverage','components'].includes(start)){
+ // Default to P25 Site Finder; honor explicit links to any workspace page.
+ const requested=location.hash.replace('#','').toLowerCase();
+ const start=definitions.some(x=>x.key===requested)?requested:'fcc';
+ if(['planner','fcc','budget','uplink','siteplan','coverage','components'].includes(start)){
   const target=definitions.find(x=>x.key===start);
   if(target?.source&&$(target.source))$(target.source).click();else activate(start,false);
- } else activate('planner',false);
+ } else activate('fcc',false);
  window.addEventListener('hashchange',()=>{
   const key=location.hash.slice(1).toLowerCase();
   if(panels[key]&&key!==active){const def=definitions.find(x=>x.key===key);if(def?.source&&$(def.source))$(def.source).click();else activate(key,false);}
