@@ -566,7 +566,8 @@
     if(!window.confirm('Start a completely new survey? This replaces the local current survey. Export your JSON first if needed.'))return;
     st=fresh();renderAll();queueSave();
   });
-  window.BatwingCoverage=Object.freeze({version:'v1.14',statusFor,statsFor,summarize,read:()=>JSON.parse(JSON.stringify(st))});
+  window.BatwingCoverage=Object.freeze({version:'v1.14',statusFor,statsFor,summarize,commitPending:commitPendingCell,hasUnsavedEdits:()=>dirtyCell,read:()=>JSON.parse(JSON.stringify(st))});
+  window.addEventListener('beforeunload',event=>{if(dirtyCell){event.preventDefault();event.returnValue='';}});
   (async()=>{
     try{db=await dbOpen();const old=await dbGet();if(old)st=readProject(old);}
     catch(e){dbFailed=true;}
