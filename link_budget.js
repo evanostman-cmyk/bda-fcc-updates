@@ -34,13 +34,14 @@
   const defaultState=()=>({sourceDbm:30,sourceUnit:'dBm',antennaGain:0,antennaUnit:'dBi',steps:[],checkpoint:'final'});
   let serial=0;
   function newStep(type='loss',name='',db=0){return {id:`s${Date.now().toString(36)}_${++serial}`,type,name,db};}
+  const ratingFields=x=>Object.fromEntries(['maxOutputDbm','maxInputDbm','p1Dbm'].filter(k=>x[k]!==null&&x[k]!==undefined&&x[k]!==''&&Number.isFinite(Number(x[k]))&&Number(x[k])>=-180&&Number(x[k])<=150).map(k=>[k,Number(x[k])]));
   function scrub(raw){
     const d=defaultState();if(!raw||typeof raw!=='object')return d;
     if(Number.isFinite(Number(raw.sourceDbm))&&Number(raw.sourceDbm)>=-200&&Number(raw.sourceDbm)<=200)d.sourceDbm=Number(raw.sourceDbm);
     if(['dBm','dBW','W'].includes(raw.sourceUnit))d.sourceUnit=raw.sourceUnit;
     if(Number.isFinite(Number(raw.antennaGain))&&Math.abs(Number(raw.antennaGain))<=100)d.antennaGain=Number(raw.antennaGain);
     if(['dBi','dBd'].includes(raw.antennaUnit))d.antennaUnit=raw.antennaUnit;
-    if(Array.isArray(raw.steps))d.steps=raw.steps.slice(0,MAX_ROWS).filter(x=>x&&typeof x==='object').map(x=>newStep(x.type==='gain'?'gain':'loss',String(x.name||'').slice(0,90),Math.min(Math.abs(number(x.db,0)),200)));
+    if(Array.isArray(raw.steps))d.steps=raw.steps.slice(0,MAX_ROWS).filter(x=>x&&typeof x==='object').map(x=>({...newStep(x.type==='gain'?'gain':'loss',String(x.name||'').slice(0,90),Math.min(Math.abs(number(x.db,0)),200)),...ratingFields(x)}));
     // Checkpoint IDs are ephemeral, so imported budgets default to the final point.
     return d;
   }
@@ -50,14 +51,18 @@
   function calculate(raw=st){
     const anten=Number(raw.antennaGain)+(raw.antennaUnit==='dBd'?2.15:0);
     let p=Number(raw.sourceDbm),gains=0,losses=0;
+    const warnings=[];
     const rows=[{id:'source',name:'TX output / source',type:'source',db:0,delta:0,conductedDbm:p,ifAntennaDbm:p+anten}];
     for(const x of raw.steps){
       const db=Math.abs(Number(x.db)||0),delta=x.type==='gain'?db:-db;
       if(x.type==='gain')gains+=db;else losses+=db;
+      if(x.maxInputDbm!=null&&p>x.maxInputDbm+.01)warnings.push(`${x.name}: input ${p.toFixed(2)} dBm exceeds listed ${x.maxInputDbm} dBm limit.`);
       p+=delta;
+      if(x.maxOutputDbm!=null&&p>x.maxOutputDbm+.01)warnings.push(`${x.name}: linear composite output ${p.toFixed(2)} dBm exceeds verified ${x.maxOutputDbm} dBm limit.`);
+      if(x.p1Dbm!=null&&p>=x.p1Dbm)warnings.push(`${x.name}: linear output reaches/exceeds listed 1 dB compression point. No saturation model applied.`);
       rows.push({id:x.id,name:x.name||((x.type==='gain')?'Gain component':'Loss component'),type:x.type,db,delta,conductedDbm:p,ifAntennaDbm:p+anten});
     }
-    return {rows,gains,losses,net:gains-losses,finalConductedDbm:p,finalEirpDbm:p+anten,antennaDbi:anten};
+    return {rows,warnings,gains,losses,net:gains-losses,finalConductedDbm:p,finalEirpDbm:p+anten,antennaDbi:anten};
   }
   function save(){try{localStorage.setItem(KEY,JSON.stringify(st));id('lbStored').textContent='Saved in this browser';}catch(_){id('lbStored').textContent='Browser storage unavailable — export JSON to keep this budget';}}
   const style=document.createElement('style');
@@ -291,7 +296,7 @@
     id('lbCheckpoint').innerHTML=`<div><strong>${curr.id==='final'?'At final reference antenna':'Checkpoint: '+esc(curr.name)}</strong><div class="lb-mini">${curr.id==='final'?'Estimated radiated EIRP at antenna':'Prospective EIRP with reference antenna connected here'}</div></div><div><small>Conducted here</small><div class="num">${formatDbm(curr.conductedDbm)}</div><div class="lb-mini">${formatDbw(curr.conductedDbm)}</div><div class="lb-watts">${formatWattDbm(curr.conductedDbm)}</div></div><div><small>${curr.id==='final'?'Final EIRP':'EIRP if antenna here'}</small><div class="num">${formatDbm(curr.ifAntennaDbm)}</div><div class="lb-mini">${formatDbw(curr.ifAntennaDbm)}</div><div class="lb-watts">${formatWattDbm(curr.ifAntennaDbm)}</div></div>`;
     id('lbResults').innerHTML=rows.map(r=>displayRow(r,r.name)).join('');
     id('lbChart').innerHTML=buildChart(rows);
-    const warns=[];
+    const warns=[...res.warnings];
     if(Math.max(...rows.map(r=>r.conductedDbm))>80)warns.push('Calculated conducted power exceeds +80 dBm (100 kW) at a stage; verify that the entered gain and source power are correct.');
     if(!st.steps.length)warns.push('No path components entered: output power equals source power.');
     id('lbWarning').hidden=!warns.length;id('lbWarning').textContent=warns.join(' ');
@@ -320,5 +325,5 @@
   id('lbReset').addEventListener('click',()=>{if(st.steps.length&&!window.confirm('Clear all link-budget components and restore default power settings?'))return;st=defaultState();clearUndo();renderAll();save()});
   id('lbExample').addEventListener('click',()=>{if(st.steps.length&&!window.confirm('Replace current budget with a sample RF chain? Export JSON first if you want to keep it.'))return;st=defaultState();st.sourceDbm=30;st.antennaGain=6;st.steps=[newStep('loss','Feedline',3),newStep('gain','Amplifier',20),newStep('loss','Coupler / distribution',10)];clearUndo();renderAll();save()});
   // Allow read-only engineering verification without opening the dialog.
-  window.BDA_LinkBudget=Object.freeze({addLibraryComponent:({name,db,kind})=>{if(typeof db!=='number'||!Number.isFinite(db)||Math.abs(db)>100||(kind!=='antenna'&&db<0))return {ok:false,reason:'RF value outside safe import range'};if(kind==='antenna'){st.antennaGain=db;st.antennaUnit='dBi';renderTop();renderCalc();save();return {ok:true}}if(st.steps.length>=MAX_ROWS)return {ok:false,reason:'Budget is full'};add('loss',String(name).slice(0,90),db);return {ok:true}},version:'v1.8',open,calculate,dbmFromDisplay,displayFromDbm,effectiveAntenna,read:()=>JSON.parse(JSON.stringify(st))});
+  window.BDA_LinkBudget=Object.freeze({addLibraryComponent:({name,db,kind,...ratings})=>{if(typeof db!=='number'||!Number.isFinite(db)||Math.abs(db)>100||(kind!=='antenna'&&db<0))return {ok:false,reason:'RF value outside safe import range'};if(kind==='antenna'){st.antennaGain=db;st.antennaUnit='dBi';renderTop();renderCalc();save();return {ok:true}}if(st.steps.length>=MAX_ROWS)return {ok:false,reason:'Budget is full'};if(kind==='gain'){clearUndo();st.steps.push({...newStep('gain',String(name).slice(0,90),db),...ratingFields(ratings)});renderComponents();renderCalc();save()}else add('loss',String(name).slice(0,90),db);return {ok:true}},version:'v1.8',open,calculate,dbmFromDisplay,displayFromDbm,effectiveAntenna,read:()=>JSON.parse(JSON.stringify(st))});
 })();

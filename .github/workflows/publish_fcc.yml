@@ -19,6 +19,7 @@ on:
       - 'rf_path.js'
       - 'component_library.js'
       - 'component_ui.js'
+      - 'active_equipment.js'
       - 'scripts/**'
       - '.github/workflows/publish_fcc.yml'
 permissions:
@@ -64,6 +65,8 @@ jobs:
           cp component_ui.js site/component_ui.js
           node --check component_library.js
           node --check component_ui.js
+          cp active_equipment.js site/active_equipment.js
+          node --check active_equipment.js
           python scripts/build_hosted.py --output site --download
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
