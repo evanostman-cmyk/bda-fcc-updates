@@ -22,7 +22,7 @@
  const safeNum=v=>v!==''&&v!==null&&v!==undefined&&Number.isFinite(Number(v))?Number(v):null;
  function safeRecord(x){
   const type=fieldSpecs[x.type]?x.type:'cable';
-  const o={id:safeString(x.id,70),type,vendor:safeString(x.vendor),model:safeString(x.model),partNumber:safeString(x.partNumber),specSource:safeString(x.specSource,220),specConfirmed:x.specConfirmed===true,unitCost:safeNum(x.unitCost),maxInputDbm:safeNum(x.maxInputDbm),maxOutputDbm:safeNum(x.maxOutputDbm)};
+  const o={id:safeString(x.id,70),type,vendor:safeString(x.vendor),model:safeString(x.model),partNumber:safeString(x.partNumber),specSource:safeString(x.specSource,220),specFrequencyMHz:safeNum(x.specFrequencyMHz),specConfirmed:x.specConfirmed===true,unitCost:safeNum(x.unitCost),maxInputDbm:safeNum(x.maxInputDbm),maxOutputDbm:safeNum(x.maxOutputDbm)};
   for(const [k] of fieldSpecs[type]){const v=safeNum(x[k]);if(v!==null)o[k]=v}
   return o;
  }
@@ -80,7 +80,7 @@
    <div class="smart-field"><label for="smModel">Model / product</label><input id="smModel" placeholder="Exact model" maxlength="120"></div>
    <div class="smart-field"><label for="smPart">Part number / SKU</label><input id="smPart" placeholder="Optional" maxlength="120"></div>
    <div class="smart-field"><label for="smSource">Specification source</label><input id="smSource" placeholder="Datasheet revision or measurement" maxlength="220"></div>
-   <div class="smart-field"><label for="smCostInput">Cost ($ / item; cable $ / ft)</label><input id="smCostInput" type="number" min="0" step="any" placeholder="Optional"></div>
+   <div class="smart-field"><label for="smSpecFreq">Specs measured at frequency (MHz)</label><input id="smSpecFreq" type="number" step="any" placeholder="Optional reference frequency"></div><div class="smart-field"><label for="smCostInput">Cost ($ / item; cable $ / ft)</label><input id="smCostInput" type="number" min="0" step="any" placeholder="Optional"></div>
    <div class="smart-field"><label for="smMaxInput">Maximum input (dBm)</label><input id="smMaxInput" type="number" step="any" placeholder="Optional rating"></div>
    <div class="smart-field"><label for="smMaxOutput">Maximum output (dBm)</label><input id="smMaxOutput" type="number" step="any" placeholder="Optional rating"></div>
   </div>
@@ -129,7 +129,7 @@
  const csvRow=r=>r.map(v=>{let s=String(v??'');if(/^\s*[=+@-]/.test(s)&&!Number.isFinite(Number(s)))s="'"+s;return '"'+s.replace(/"/g,'""')+'"';}).join(',');
  function resetForm(){
   $('smSaved').value='';$('smVendor').value='';$('smModel').value='';$('smPart').value='';$('smSource').value='';$('smCostInput').value='';
-  $('smMaxInput').value='';$('smMaxOutput').value='';$('smConfirmed').checked=false;specFields();
+  $('smMaxInput').value='';$('smMaxOutput').value='';$('smSpecFreq').value='';$('smConfirmed').checked=false;specFields();
  }
  function specFields(){
   const root=$('smSpecs');root.replaceChildren();
@@ -146,7 +146,7 @@
   const type=$('smType').value;
   const out={id:$('smSaved').value||'m_'+Date.now().toString(36)+'_'+Math.floor(Math.random()*100000).toString(36),type,
    vendor:safeString($('smVendor').value),model:safeString($('smModel').value),partNumber:safeString($('smPart').value),
-   specSource:safeString($('smSource').value,220),specConfirmed:$('smConfirmed').checked,unitCost:$n('smCostInput'),
+   specSource:safeString($('smSource').value,220),specFrequencyMHz:$n('smSpecFreq'),specConfirmed:$('smConfirmed').checked,unitCost:$n('smCostInput'),
    maxInputDbm:$n('smMaxInput'),maxOutputDbm:$n('smMaxOutput')};
   for(const [key] of fieldSpecs[type])out[key]=$n('smSpec_'+key);
   return safeRecord(out);
@@ -160,6 +160,7 @@
     if(key!=='gainDbi'&&n<0)return key+' cannot be negative.';
   }
   if(r.unitCost!==null&&r.unitCost<0)return 'Unit cost cannot be negative.';
+  if(r.specFrequencyMHz!==null&&(r.specFrequencyMHz<30||r.specFrequencyMHz>12000))return 'Reference frequency must be between 30 and 12,000 MHz.';
   if(r.specConfirmed&&!r.specSource)return 'A datasheet or measurement reference is required to mark specs verified.';
   return '';
  }
@@ -174,7 +175,7 @@
  }
  function setForm(rec){
   $('smType').value=rec.type;$('smVendor').value=rec.vendor;$('smModel').value=rec.model;$('smPart').value=rec.partNumber;
-  $('smSource').value=rec.specSource;$('smCostInput').value=rec.unitCost??'';$('smMaxInput').value=rec.maxInputDbm??'';
+  $('smSource').value=rec.specSource;$('smSpecFreq').value=rec.specFrequencyMHz??'';$('smCostInput').value=rec.unitCost??'';$('smMaxInput').value=rec.maxInputDbm??'';
   $('smMaxOutput').value=rec.maxOutputDbm??'';$('smConfirmed').checked=rec.specConfirmed;
   specFields();for(const [key] of fieldSpecs[rec.type])$('smSpec_'+key).value=rec[key]??'';
  }
@@ -254,6 +255,10 @@
    if(n.type==='port'||n.type==='tx')continue;
    if(!n.specConfirmed)add('review',n.name,'RF values have not been marked verified against a datasheet or measured record.');
    if(!n.vendor||!n.model)add('review',n.name,'Manufacturer and model are unspecified.');
+   if(Number.isFinite(Number(plan.frequencyMHz))&&plan.frequencyMHz!==null&&plan.frequencyMHz!==undefined){
+    if(n.specFrequencyMHz!==undefined&&n.specFrequencyMHz!==null&&Number.isFinite(Number(n.specFrequencyMHz))&&Math.abs(Number(n.specFrequencyMHz)-Number(plan.frequencyMHz))>0.5)add('warning',n.name,'RF parameters were entered for '+n.specFrequencyMHz+' MHz, but project frequency is '+plan.frequencyMHz+' MHz. Verify frequency-specific loss/gain.');
+    else if(n.type==='cable'&&(n.specFrequencyMHz===undefined||n.specFrequencyMHz===null))add('review',n.name,'Cable attenuation has no stated reference frequency; verify at '+plan.frequencyMHz+' MHz.');
+   }
    if(n.maxInputDbm!==undefined&&n.maxInputDbm!==null&&r.input>Number(n.maxInputDbm)+.01)add('error',n.name,'Input '+r.input.toFixed(2)+' dBm exceeds rated input '+n.maxInputDbm+' dBm.');
    if(n.maxOutputDbm!==undefined&&n.maxOutputDbm!==null&&r.out>Number(n.maxOutputDbm)+.01)add('error',n.name,'Output '+r.out.toFixed(2)+' dBm exceeds rated output '+n.maxOutputDbm+' dBm.');
   }
