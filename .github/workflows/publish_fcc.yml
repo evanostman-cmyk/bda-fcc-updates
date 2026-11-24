@@ -14,6 +14,8 @@ on:
       - 'uplink_gain.js'
       - 'kmz_import.js'
       - 'workspace_pages.js'
+      - 'smart_site_plan.js'
+      - 'rf_path.js'
       - 'scripts/**'
       - '.github/workflows/publish_fcc.yml'
 permissions:
@@ -45,6 +47,8 @@ jobs:
           cp uplink_gain.js site/uplink_gain.js
           cp kmz_import.js site/kmz_import.js
           cp workspace_pages.js site/workspace_pages.js
+          cp smart_site_plan.js site/smart_site_plan.js
+          cp rf_path.js site/rf_path.js
           python scripts/build_hosted.py --output site --download
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
