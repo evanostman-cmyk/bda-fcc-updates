@@ -46,7 +46,7 @@
       <label>Required isolation margin (dB)<input type="number" step="0.1" id="ugMargin" value="20"></label>
       <label>Tower noise, BDA OFF (dBm)<input type="number" step="0.1" id="ugNoiseOff" placeholder="Tower tech reading"></label>
       <label>Tower noise, BDA ON (dBm)<input type="number" step="0.1" id="ugNoiseOn" placeholder="Tower tech reading"></label>
-      <label>Permitted noise rise (dB)<input type="number" step="0.1" min="0" id="ugTolerance" value="0"></label>
+      <label>Allowed ON/OFF noise change ±dB<input type="number" step="0.1" min="0" id="ugTolerance" value="0"></label>
     </div><p class="ug-hint">−65 dBm target, −75 to −50 dBm nominal reference range, and 20 dB isolation margin are starting references only; use AHJ, tower operator, and manufacturer requirements. By default the tower noise floor must remain unchanged.</p></section>
     <section class="ug-card"><h3>2 · Uplink gain planning results</h3><div class="ug-results">
        <div class="ug-metric"><small>Gain requested by RSSI target</small><strong id="ugOutRequired">—</strong></div>
@@ -95,8 +95,8 @@
       }
     }else notes.push('Enter current BDA gain, measured tower RSSI, target RSSI and isolation to calculate a test gain.');
     if(valid(off,-180,30)&&valid(on,-180,30)&&valid(tolerance,0,20)){
-      noiseRise=on-off;noiseOk=noiseRise<=tolerance+1e-9;
-      if(!noiseOk){notes.push('STOP: BDA ON increases tower noise beyond the allowed limit. Do not increase gain; troubleshoot and remeasure with the tower technician.');suggested=null;predicted=null;delta=null;headroom=null;notes.push('Provisional gain is withheld until tower receiver noise is acceptable.');}
+      noiseRise=on-off;noiseOk=Math.abs(noiseRise)<=tolerance+1e-9;
+      if(!noiseOk){notes.push(noiseRise>0?'STOP: BDA ON increases tower noise beyond the allowed limit. Do not increase gain; troubleshoot and remeasure with the tower technician.':'STOP / VERIFY: Tower noise floor dropped beyond the allowed ON/OFF tolerance. Measurements are not unchanged; confirm the tower reading, receiver gain conditions and measurement repeatability before adjusting the BDA.');suggested=null;predicted=null;delta=null;headroom=null;notes.push('Provisional gain is withheld until tower receiver noise is acceptable.');}
     }else notes.push('Tower noise OFF/ON readings are missing or invalid. Gain result remains planning-only, not commissioned.');
     if(suggested!==null&&valid(input,-180,40)&&valid(donorLoss,0,150)&&valid(donorGain,-30,60)){
       const conducted=input+suggested, eirp=conducted-donorLoss+donorGain;
