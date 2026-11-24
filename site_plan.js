@@ -282,7 +282,7 @@
   get('bspNodeName').addEventListener('input',e=>{n.name=e.target.value.slice(0,90);updateDiagram();updateAntennas();persist()});
   side.querySelectorAll('[data-site-field]').forEach(field=>field.addEventListener('change',e=>{
    const key=e.target.dataset.siteField;
-   if(key==='ports'){if(!shrinkPorts(n,Number(e.target.value))){e.target.value=n.ports;return}}
+   if(key==='ports'){const old=n.ports;if(!shrinkPorts(n,Number(e.target.value))){e.target.value=n.ports;return}if(old!==n.ports)n.specConfirmed=false;}
    else{if(n.specConfirmed&&key!=='feet')n.specConfirmed=false;const min=key==='gainDbi'?-60:0,max=key==='feet'?200000:200;
     n[key]=finite(e.target.value,min,max,n[key]||0);
    }
