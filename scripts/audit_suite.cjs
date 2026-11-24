@@ -26,6 +26,12 @@
     new Function(m[2]);
    }
  });
+ test('FCC compact nationwide JSON uses streaming importer',()=>{
+   check(source.index.includes('if(isRecordObject){await fccImportNationwide(file);return;}'),'Files over 200k rows but below 55MB must use streaming import');
+ });
+ test('Workspace saves pending coverage edits',()=>{
+   check(source.nav.includes("window.BatwingCoverage?.commitPending"),'Missing coverage navigation save guard');
+ });
  test('Site Finder and workspaces load order',()=>{
   check(source.index.indexOf('coverage_survey.js')<source.index.indexOf('workspace_pages.js'),'Coverage module must load before workspace');
   check(source.nav.includes("key:'coverage'"),'Coverage tab missing');
