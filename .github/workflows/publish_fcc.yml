@@ -17,6 +17,8 @@ on:
       - 'workspace_pages.js'
       - 'smart_site_plan.js'
       - 'rf_path.js'
+      - 'component_library.js'
+      - 'component_ui.js'
       - 'scripts/**'
       - '.github/workflows/publish_fcc.yml'
 permissions:
@@ -58,6 +60,10 @@ jobs:
           cp workspace_pages.js site/workspace_pages.js
           cp smart_site_plan.js site/smart_site_plan.js
           cp rf_path.js site/rf_path.js
+          cp component_library.js site/component_library.js
+          cp component_ui.js site/component_ui.js
+          node --check component_library.js
+          node --check component_ui.js
           python scripts/build_hosted.py --output site --download
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

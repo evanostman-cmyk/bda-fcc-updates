@@ -7,7 +7,9 @@
  const $ = id => document.getElementById(id);
  const main = document.querySelector('main');
  const bar = document.querySelector('.topbar');
+ const clPage=document.createElement('section');clPage.id='bwComponentLibrary';
  const definitions = [
+  {key:'components',label:'RF Components',glyph:'▧',node:clPage,source:null},
   {key:'planner', label:'Channel Planner', glyph:'▤', node:main, source:null},
   {key:'fcc', label:'P25 Site Finder', glyph:'⌕', node:$('fccDialog'), source:'fccOpenTop'},
   {key:'budget', label:'Link Budget', glyph:'⚡', node:$('linkBudgetDialog'), source:'linkBudgetTop'},
@@ -121,7 +123,7 @@
  }
  // Preserve the last page within this browser session; a direct page link can also specify it.
  const start=location.hash.replace('#','').toLowerCase();
- if(['fcc','budget','uplink','siteplan','coverage'].includes(start)){
+ if(['fcc','budget','uplink','siteplan','coverage','components'].includes(start)){
   const target=definitions.find(x=>x.key===start);
   if(target?.source&&$(target.source))$(target.source).click();else activate(start,false);
  } else activate('planner',false);

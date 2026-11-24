@@ -153,3 +153,10 @@ The online site finder and the **[v1.14.1 standalone offline HTML](Batwing_RF_Su
 ### v1.15 — Jump to tower results
 
 The P25 Site Finder now has a **View towers** button immediately next to **Find towers**. It scrolls to the transmitter results heading, accommodates the sticky navigation height on desktop and mobile, and is disabled while an address or GPS lookup is in progress. All v1.14.1 FCC loading fixes are retained. Download the [standalone v1.15 HTML](Batwing_RF_Suite_Evan_Andrew_v1.15_OFFLINE.html) or the [single-file ZIP](https://github.com/evanostman-cmyk/bda-fcc-updates/archive/refs/heads/offline-v1.15-download.zip).
+
+
+### v1.16 component library preview (not production)
+
+Open **RF Components** in the workspace. Import VEX, ZIP, compatible relational XML, or Batwing JSON; search by manufacturer/model/type. Choose frequency and port path. Imported components persist in IndexedDB; export JSON for backups. Select the matching Site Plan node and matching plan frequency before applying, or add the path to Link Budget. Fixed-length assemblies use a fixed loss node. Calculations are snapshots, not automatically recalculated after frequency changes. Unknown/ambiguous formulas and unmatched bands are not assigned. Upper loss limits are treated as conservative bounds. Independently verify source RF data before engineering use.
+
+The browser-native R26 decoder was checked against the two provided manufacturer libraries (1,643 records, exact equality with the Python decoder). Real iBwave XML exports and browser end-to-end integration still require verification. Manufacturer libraries are not redistributed in this repository. Download [standalone v1.16 preview](Batwing_RF_Suite_Evan_Andrew_v1.16_PREVIEW_OFFLINE.html). The live main branch is unchanged.
