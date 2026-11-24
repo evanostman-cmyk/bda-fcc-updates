@@ -8,7 +8,7 @@
   const clamp=(v,min,max,def)=>v!==null&&Number.isFinite(Number(v))?Math.max(min,Math.min(max,Number(v))):def;
   const id=()=>Math.random().toString(36).slice(2,11);
   function floor(name='Floor 1',rows=4,cols=5){return {id:id(),name,rows,cols,image:null,inset:{l:0,t:0,r:0,b:0},cells:{}}}
-  function fresh(){return {format:'Batwing-Coverage-Survey',version:'1.14',site:'New survey',address:'',ahj:'',criteriaRef:'',technician:'',equipment:'',radio:'',channel:'',date:new Date().toISOString().slice(0,10),thresholds:{dlRssi:null,dlDaq:null,ulRssi:null,ulDaq:null,generalPercent:null,criticalPercent:null},required:{dlRssi:true,dlDaq:true,ulRssi:false,ulDaq:false},floors:[floor()],current:0,selected:'0,0'}}
+  function fresh(){return {format:'Batwing-Coverage-Survey',version:'1.14',site:'New survey',address:'',ahj:'',criteriaRef:'',technician:'',equipment:'',radio:'',channel:'',date:new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10),thresholds:{dlRssi:null,dlDaq:null,ulRssi:null,ulDaq:null,generalPercent:null,criticalPercent:null},required:{dlRssi:true,dlDaq:true,ulRssi:false,ulDaq:false},floors:[floor()],current:0,selected:'0,0'}}
   let st=fresh(), saveTimer=null,db=null,dbFailed=false,loadResolved=false;
   const btn=document.createElement('button');btn.type='button';btn.className='btn';btn.id='bwCoverageOpen';btn.textContent='▦ Coverage Survey';
   (document.getElementById('bdaSitePlanTop')||document.getElementById('fccOpenTop'))?.insertAdjacentElement('afterend',btn);
@@ -251,7 +251,7 @@
     data.complete=data.pending===0;
     const generalTarget=project.thresholds.generalPercent,criticalTarget=project.thresholds.criticalPercent;
     data.targetsReady=Number.isFinite(generalTarget)&&(data.critical.total===0||Number.isFinite(criticalTarget));
-    data.meets=data.complete&&rulesValid(project)&&data.targetsReady&&(data.general.total===0||data.general.rate>=generalTarget)&&(data.critical.total===0||data.critical.rate>=criticalTarget);
+    data.meets=data.active>0&&data.complete&&rulesValid(project)&&data.targetsReady&&(data.general.total===0||data.general.rate>=generalTarget)&&(data.critical.total===0||data.critical.rate>=criticalTarget);
     return data;
   }
   function summarize(project){
