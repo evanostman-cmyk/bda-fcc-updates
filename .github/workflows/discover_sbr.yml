@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'scripts/discover_sbr.py'
+      - 'scripts/build_sbr.py'
       - '.github/workflows/discover_sbr.yml'
 permissions:
   contents: read
@@ -21,3 +22,12 @@ jobs:
         run: |
           python -m py_compile scripts/discover_sbr.py
           python -u scripts/discover_sbr.py
+      - name: Retrieve and validate full public registry
+        run: |
+          python -m py_compile scripts/build_sbr.py
+          python -u scripts/build_sbr.py --output sbr
+      - uses: actions/upload-artifact@v4
+        with:
+          name: verified-sbr-snapshot
+          path: sbr/
+          if-no-files-found: error
