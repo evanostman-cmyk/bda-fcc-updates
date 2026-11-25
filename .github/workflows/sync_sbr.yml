@@ -1,0 +1,101 @@
+name: Synchronize FCC signal booster registry
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '30 12 * * *'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/build_sbr.py'
+      - '.github/workflows/sync_sbr.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/build_sbr.py'
+      - '.github/workflows/sync_sbr.yml'
+permissions:
+  contents: read
+concurrency:
+  group: sbr-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Fetch and validate complete FCC SBR snapshot
+        run: python -u scripts/build_sbr.py --output sbr
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sbr-validated
+          path: sbr/
+          if-no-files-found: error
+          retention-days: 7
+  publish:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/download-artifact@v4
+        with:
+          name: sbr-validated
+          path: ${{ runner.temp }}/verified-sbr
+      - name: Verify manifest and atomically publish independent data branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          export SBR_DIR="$RUNNER_TEMP/verified-sbr"
+          python - <<'PY'
+          import os,json,hashlib
+          from pathlib import Path
+          from datetime import datetime, timezone
+          p=Path(os.environ["SBR_DIR"]); m=json.loads((p/"manifest.json").read_text()); b=(p/"records.json").read_bytes()
+          assert m["format"]=="Batwing-FCC-SBR-Manifest-v1" and m["file"]=="records.json"
+          assert len(b)==m["bytes"] and hashlib.sha256(b).hexdigest()==m["sha256"]
+          d=json.loads(b); assert d["format"]=="Batwing-FCC-SBR-v1" and d["generatedAt"]==m["generatedAt"]
+          assert 15000<=len(d["records"])==m["records"]<=100000
+          assert len({r["fid"] for r in d["records"]})==m["records"]
+          assert 0<=(datetime.now(timezone.utc)-datetime.fromisoformat(m["generatedAt"])).total_seconds()<86400
+          PY
+          if git ls-remote --exit-code --heads origin refs/heads/data/sbr >/dev/null; then
+            git fetch --depth=1 origin refs/heads/data/sbr
+            git checkout --detach FETCH_HEAD
+            python - <<'PY'
+          import os,json
+          from pathlib import Path
+          from datetime import datetime
+          old=json.loads(Path("sbr/manifest.json").read_text())
+          new=json.loads((Path(os.environ["SBR_DIR"])/"manifest.json").read_text())
+          assert datetime.fromisoformat(new["generatedAt"])>datetime.fromisoformat(old["generatedAt"]), "Refusing older snapshot"
+          assert new["records"]>=old["records"]*0.9, "Unexpected registry shrinkage; keep previous snapshot"
+          PY
+          else
+            git checkout --orphan sbr-publication
+            git rm -rf .
+          fi
+          mkdir -p sbr
+          cp "$SBR_DIR/manifest.json" "$SBR_DIR/records.json" sbr/
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add sbr/manifest.json sbr/records.json
+          git commit -m "Refresh verified FCC SBR registry"
+          git push origin HEAD:refs/heads/data/sbr
+      - name: Verify published branch file hashes
+        run: |
+          git fetch --depth=1 origin refs/heads/data/sbr
+          git show FETCH_HEAD:sbr/manifest.json > "$RUNNER_TEMP/published-manifest.json"
+          git show FETCH_HEAD:sbr/records.json > "$RUNNER_TEMP/published-records.json"
+          cmp "$RUNNER_TEMP/verified-sbr/manifest.json" "$RUNNER_TEMP/published-manifest.json"
+          cmp "$RUNNER_TEMP/verified-sbr/records.json" "$RUNNER_TEMP/published-records.json"

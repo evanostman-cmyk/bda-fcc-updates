@@ -1,0 +1,33 @@
+name: Discover public FCC SBR data service
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/discover_sbr.py'
+      - 'scripts/build_sbr.py'
+      - '.github/workflows/discover_sbr.yml'
+permissions:
+  contents: read
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Inspect public FCC registry source
+        run: |
+          python -m py_compile scripts/discover_sbr.py
+          python -u scripts/discover_sbr.py
+      - name: Retrieve and validate full public registry
+        run: |
+          python -m py_compile scripts/build_sbr.py
+          python -u scripts/build_sbr.py --output sbr
+      - uses: actions/upload-artifact@v4
+        with:
+          name: verified-sbr-snapshot
+          path: sbr/
+          if-no-files-found: error
