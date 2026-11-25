@@ -45,7 +45,7 @@ def digest(data): return hashlib.sha256(data).hexdigest()
 def prepare(root, output):
     lock=json.loads((root/'release-lock.json').read_text(encoding='utf-8'))
     version=lock['version']
-    if not re.fullmatch(r'\d+\.\d+',version): raise ValueError('Invalid release version')
+    if not re.fullmatch(r'\d+\.\d+(?:\.\d+)?',version): raise ValueError('Invalid release version')
     stem='Batwing_RF_Toolkit_v'+version
     archive=root/(stem+'.zip')
     blob=archive.read_bytes()
@@ -56,7 +56,7 @@ def prepare(root, output):
         html=z.read(stem+'.html')
     if digest(html)!=lock['html_sha256']: raise ValueError('Release HTML checksum mismatch')
     source=html.decode('utf-8')
-    if not re.search(r'<title>[^<]*v'+re.escape(version)+r'\b',source): raise ValueError('HTML title version mismatch')
+    if not re.search(r'<title>[^<]*v'+re.escape(version)+r'(?![\w.])',source): raise ValueError('HTML title version mismatch')
     parser=Audit();parser.feed(source);parser.close()
     if len(parser.scripts)!=lock['script_count'] or not parser.catalog: raise ValueError('Missing scripts or component catalog')
     with tempfile.TemporaryDirectory() as tmp:
