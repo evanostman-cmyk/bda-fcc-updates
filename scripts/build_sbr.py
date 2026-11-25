@@ -16,11 +16,12 @@ MINIMUM=15000  # conservative guard based on 18,482 observed in discovery
 def require(condition,message):
     if not condition: raise ValueError(message)
 
-def request(path,**params):
-    url=LAYER+path+"?"+urlencode({"f":"json",**params})
+def request(path,post=False,**params):
+    encoded=urlencode({"f":"json",**params})
+    url=LAYER+path if post else LAYER+path+"?"+encoded
     for attempt in range(3):
         try:
-            with urlopen(Request(url,headers={"User-Agent":"Batwing public FCC SBR snapshot","Accept":"application/json"}),timeout=45) as res:
+            with urlopen(Request(url,data=encoded.encode("ascii") if post else None,headers={"User-Agent":"Batwing public FCC SBR snapshot","Accept":"application/json","Content-Type":"application/x-www-form-urlencoded"}),timeout=45) as res:
                 require(res.geturl().startswith(LAYER),"Unexpected service redirect")
                 body=res.read(20*1024*1024+1)
             require(len(body)<=20*1024*1024,"Oversized source response")
@@ -66,8 +67,12 @@ def build(output,minimum=MINIMUM):
     # Limit GET URL length and stay well below the service's 2,000-row ceiling.
     for i in range(0,len(initial),400):
         batch=initial[i:i+400]
-        result=request("/query",objectIds=",".join(map(str,batch)),outFields=",".join(FIELDS),returnGeometry="false")
-        require(not result.get("exceededTransferLimit"),"Source truncated a batch")
+        try:
+            result=request("/query",post=True,objectIds=",".join(map(str,batch)),outFields=",".join(FIELDS),returnGeometry="false")
+        except Exception as error:
+            print("POST batch unavailable; using ordered pagination:",type(error).__name__,flush=True)
+            result=request("/query",where="1=1",orderByFields="FID ASC",resultOffset=i,resultRecordCount=len(batch),outFields=",".join(FIELDS),returnGeometry="false")
+        require(not result.get("exceededTransferLimit") or len(result.get("features",[]))==len(batch),"Source truncated a batch")
         features=result.get("features")
         require(isinstance(features,list),"Missing feature list")
         got={}
