@@ -4,31 +4,51 @@ on:
   schedule:
     - cron: '0 12 * * 1'
   push:
+    branches: [main, 'production/**']
+    paths:
+      - 'Batwing_RF_Toolkit_v*.zip'
+      - 'release-lock.json'
+      - 'scripts/**'
+      - '.github/workflows/publish_fcc.yml'
+  pull_request:
     branches: [main]
     paths:
-      - 'index.html'
-      - 'tower_distance.js'
-      - 'elevation_profile.js'
-      - 'link_budget.js'
-      - 'site_plan.js'
-      - 'uplink_gain.js'
-      - 'kmz_import.js'
-      - 'coverage_survey.js'
-      - 'workspace_pages.js'
-      - 'smart_site_plan.js'
-      - 'rf_path.js'
+      - 'Batwing_RF_Toolkit_v*.zip'
+      - 'release-lock.json'
       - 'scripts/**'
       - '.github/workflows/publish_fcc.yml'
 permissions:
   contents: read
-  pages: write
-  id-token: write
 concurrency:
-  group: fcc-pages
+  group: fcc-pages-${{ github.ref }}
   cancel-in-progress: true
 jobs:
-  publish:
+  audit:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate standalone release, FCC regression tests and snapshot fixtures
+        run: |
+          python -m py_compile scripts/fcc_builder.py scripts/build_hosted.py scripts/verify_snapshot.py scripts/prepare_release.py scripts/verify_live.py
+          python scripts/test_verify_snapshot.py
+          python scripts/prepare_release.py --output site
+          node scripts/audit_standalone_fcc.cjs site/index.html
+  publish:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
@@ -40,32 +60,20 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Audit JavaScript, RF calculations, survey logic, and KMZ import
-        run: |
-          node scripts/audit_suite.cjs
-          python -m py_compile scripts/fcc_builder.py scripts/build_hosted.py
-      - name: Build FCC P25 frequency data and site pins from official ULS snapshots
-        run: |
-          mkdir -p site
-          cp index.html site/index.html
-          cp tower_distance.js site/tower_distance.js
-          cp elevation_profile.js site/elevation_profile.js
-          cp link_budget.js site/link_budget.js
-          cp site_plan.js site/site_plan.js
-          cp uplink_gain.js site/uplink_gain.js
-          cp kmz_import.js site/kmz_import.js
-          cp coverage_survey.js site/coverage_survey.js
-          cp workspace_pages.js site/workspace_pages.js
-          cp smart_site_plan.js site/smart_site_plan.js
-          cp rf_path.js site/rf_path.js
-          python scripts/build_hosted.py --output site --download
+      - name: Prepare identical hosted and offline application
+        run: python scripts/prepare_release.py --output site
+      - name: Build FCC P25 frequency data from official ULS snapshots
+        run: python scripts/build_hosted.py --output site --download
+      - name: Validate nationwide snapshot counts, coverage and every SHA-256
+        run: python scripts/verify_snapshot.py site
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
-      # GitHub artifact indexing can lag artifact upload by several seconds.
       - name: Allow uploaded Pages artifact to be indexed
         run: sleep 20
       - name: Deploy GitHub Pages
         id: deploy
         uses: actions/deploy-pages@v4
+      - name: Verify actual deployed FCC data, CORS and application
+        run: python scripts/verify_live.py "${{ steps.deploy.outputs.page_url }}" --root site
