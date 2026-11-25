@@ -44,6 +44,7 @@ jobs:
         run: |
           node scripts/audit_suite.cjs
           python -m py_compile scripts/fcc_builder.py scripts/build_hosted.py scripts/verify_snapshot.py
+          python scripts/test_verify_snapshot.py
       - name: Build FCC P25 frequency data and site pins from official ULS snapshots
         run: |
           mkdir -p site
