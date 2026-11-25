@@ -43,7 +43,7 @@ jobs:
       - name: Audit JavaScript, RF calculations, survey logic, and KMZ import
         run: |
           node scripts/audit_suite.cjs
-          python -m py_compile scripts/fcc_builder.py scripts/build_hosted.py
+          python -m py_compile scripts/fcc_builder.py scripts/build_hosted.py scripts/verify_snapshot.py
       - name: Build FCC P25 frequency data and site pins from official ULS snapshots
         run: |
           mkdir -p site
@@ -59,6 +59,8 @@ jobs:
           cp smart_site_plan.js site/smart_site_plan.js
           cp rf_path.js site/rf_path.js
           python scripts/build_hosted.py --output site --download
+      - name: Validate nationwide snapshot counts, state coverage and every SHA-256
+        run: python scripts/verify_snapshot.py site
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
