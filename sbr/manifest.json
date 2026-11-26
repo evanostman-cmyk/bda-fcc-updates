@@ -1,6 +1,6 @@
 {
   "format": "Batwing-FCC-SBR-Manifest-v1",
-  "generatedAt": "2026-11-25T17:37:25.367940+00:00",
+  "generatedAt": "2026-11-26T13:48:56.530304+00:00",
   "source": "https://services.arcgis.com/YnOQrIGdN9JGtBh4/arcgis/rest/services/Signal_Booster_Regiatrations/FeatureServer/0",
   "file": "records.json",
   "records": 18482,
@@ -10,5 +10,5 @@
     "2026-11-25"
   ],
   "bytes": 5955045,
-  "sha256": "20b5a71365141a8f5ba9ae93060277e8a5d705166148e40b78fb46a54fe5ea23"
+  "sha256": "a71d965ca4d90b2362c0cb13f3f4cd7cd0664284a4d218f07400a9f067ae191f"
 }
